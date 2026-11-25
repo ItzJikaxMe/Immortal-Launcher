@@ -111,9 +111,77 @@ public final class EngineLaunchActivity extends LauncherActivity {
                 fail("Could not apply the saved Immortal control layout: " + error.getMessage());
                 return;
             }
-            showStatus("Downloading missing libraries and Android native files…");
-            ExtraCore.setValue(ExtraConstants.LAUNCH_GAME, true);
+            showStatus("Preparing engine components before launch…");
+            waitForEngineAssets();
         }));
+    }
+
+    /**
+     * Mojo extracts its bundled components on its own executor. Those extraction jobs are
+     * reported through ProgressLayout, not ProgressKeeper, so waitUntilDone() alone does
+     * not guarantee that the Java/AWT/Forge support files are ready. Wait for each component's
+     * version marker (written only after extraction succeeds) before dispatching the game.
+     */
+    private void waitForEngineAssets() {
+        new Thread(() -> {
+            long deadline = System.currentTimeMillis() + 120_000L;
+            while (System.currentTimeMillis() < deadline && !engineAssetsReady()) {
+                try {
+                    Thread.sleep(250L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    runOnUiThread(() -> fail("Engine setup was interrupted. Please try again."));
+                    return;
+                }
+            }
+            if (!engineAssetsReady()) {
+                runOnUiThread(() -> fail("Engine components are still missing. Restart Immortal and try again; check free storage space."));
+                return;
+            }
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                showStatus("Downloading missing libraries and Android native files…");
+                ExtraCore.setValue(ExtraConstants.LAUNCH_GAME, true);
+            });
+        }, "Immortal-Engine-Readiness").start();
+    }
+
+    private boolean engineAssetsReady() {
+        try {
+            String gameHome = git.artdeell.mojo.Tools.DIR_GAME_HOME;
+            String dataHome = git.artdeell.mojo.Tools.DIR_DATA;
+            if (gameHome == null || dataHome == null) return false;
+
+            if (!componentReady("caciocavallo", new java.io.File(gameHome, "caciocavallo"))) return false;
+            if (!componentReady("caciocavallo17", new java.io.File(gameHome, "caciocavallo17"))) return false;
+            if (!componentReady("security", new java.io.File(dataHome, "security"))) return false;
+            if (!componentReady("forge_installer", new java.io.File(dataHome, "forge_installer"))) return false;
+            if (!componentReady("authlib-injector", new java.io.File(dataHome, "authlib-injector"))) return false;
+            if (!componentReady("noblocklist", new java.io.File(dataHome, "noblocklist"))) return false;
+
+            java.io.File gameDir = LauncherPaths.minecraftDirectory(this);
+            java.io.File controlMap = new java.io.File(gameHome, "controlmap/default.json");
+            java.io.File profiles = new java.io.File(gameDir, "launcher_profiles.json");
+            java.io.File resolver = new java.io.File(dataHome, "resolv.conf");
+            return controlMap.isFile() && profiles.isFile() && resolver.isFile();
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private boolean componentReady(String name, java.io.File directory) throws Exception {
+        String expected;
+        try (java.io.InputStream input = getAssets().open("components/" + name + "/version");
+             java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[256];
+            int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            expected = output.toString("UTF-8").trim();
+        }
+        java.io.File marker = new java.io.File(directory, "version");
+        if (!marker.isFile()) return false;
+        String actual = new String(java.nio.file.Files.readAllBytes(marker.toPath()), "UTF-8").trim();
+        return !expected.isEmpty() && expected.equals(actual);
     }
 
     private void applyImmortalPreferences() {
