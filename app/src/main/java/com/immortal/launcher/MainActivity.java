@@ -413,8 +413,11 @@ public class MainActivity extends Activity {
                 toast("Driver installation and switching need the graphics runtime bridge.");
             } else if("migration".equals(action)) {
                 toast("Data migration will be available when the instance storage manager is integrated.");
+            } else if("partials".equals(action)) {
+                int removed = deletePartialDownloads(LauncherPaths.appDataRoot(this));
+                toast(removed == 0 ? "No partial downloads were found." : "Removed " + removed + " incomplete download file(s).");
             } else if("cache".equals(action)) {
-                toast("No metadata cache has been created by this build yet.");
+                toast("There is no separate metadata cache to clear in this build.");
             } else if("mic".equals(action)) {
                 toast("Microphone permission is managed by Android when voice chat support is added.");
             }
@@ -429,7 +432,8 @@ public class MainActivity extends Activity {
         java.io.File[] dirs=runtimeRoot.listFiles();
         int count=0;
         if(dirs!=null) for(java.io.File d:dirs) if(d.isDirectory()) count++;
-        addSettingsNote(count==0?"No runtime folders found. The runtime installer still needs to be connected.":count+" runtime folder(s) detected.");
+        addSettingsNote("The engine includes its bundled Java runtime and selects the compatible Java version automatically. "
+                + count + " custom runtime folder(s) detected.");
         settingsSection("MEMORY","Set the maximum memory available to Minecraft");
         android.app.ActivityManager.MemoryInfo mi=new android.app.ActivityManager.MemoryInfo();
         ((android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(mi);
@@ -518,7 +522,7 @@ public class MainActivity extends Activity {
         settingsSwitch("Disable server blocklist","disable_server_blocklist",false);
         settingsSection("STORAGE & MAINTENANCE","Manage launcher data");
         settingsAction("Clear metadata cache","Remove cached version and metadata information.","cache");
-        settingsAction("Clean partial downloads","Remove incomplete download files.","cache");
+        settingsAction("Clean partial downloads","Remove incomplete .part and .tmp files from launcher storage.","partials");
         settingsAction("Migrate launcher data","Move launcher data to another storage location.","migration");
         settingsAction("Microphone permission","Request microphone access for future voice features.","mic");
         addSettingsNote("Verification and download settings are passed to the engine. Cache cleanup and full storage migration tools are still being completed.");
@@ -605,6 +609,22 @@ public class MainActivity extends Activity {
         });
         content.addView(block,margins(-1,-2,0,dp(2),0,dp(3)));
     }
+    private int deletePartialDownloads(java.io.File root) {
+        if (root == null || !root.exists()) return 0;
+        int removed = 0;
+        java.io.File[] children = root.listFiles();
+        if (children == null) return 0;
+        for (java.io.File child : children) {
+            if (child.isDirectory()) {
+                removed += deletePartialDownloads(child);
+            } else {
+                String name = child.getName().toLowerCase(java.util.Locale.ROOT);
+                if ((name.endsWith(".part") || name.endsWith(".tmp")) && child.delete()) removed++;
+            }
+        }
+        return removed;
+    }
+
     private void chooseJavaRuntime(TextView view) {
         java.io.File root=new java.io.File(getFilesDir().getParentFile(),"runtimes");
         java.util.ArrayList<String> names=new java.util.ArrayList<>();
