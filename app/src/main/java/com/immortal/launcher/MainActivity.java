@@ -89,36 +89,15 @@ public class MainActivity extends Activity {
         logo.setContentDescription("Immortal Launcher logo");
         h.addView(logo,new LinearLayout.LayoutParams(dp(64),dp(58)));
 
-        TextView brand=txt("IMMORTAL",20,TEXT,true);
+        TextView brand=txt("Immortal Launcher",20,TEXT,true);
         LinearLayout.LayoutParams brandp=new LinearLayout.LayoutParams(0,-2,1);
         brandp.leftMargin=dp(10);
         h.addView(brand,brandp);
 
-        LinearLayout right=new LinearLayout(this);
-        right.setGravity(Gravity.CENTER_VERTICAL);
-        right.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-
         TextView version=txt("0.1.0",12,MUTED,true);
         LinearLayout.LayoutParams verp=new LinearLayout.LayoutParams(-2,-2);
-        verp.rightMargin=dp(12);
-        right.addView(version,verp);
-
-        TextView account=txt("Player  ⌄",14,TEXT,true);
-        account.setGravity(Gravity.CENTER);
-        account.setPadding(dp(14),0,dp(14),0);
-        account.setBackground(shape(PANEL,30,Color.rgb(48,45,56)));
-        right.addView(account,new LinearLayout.LayoutParams(-2,dp(42)));
-        account.setOnClickListener(v->toast("Account selection will be added."));
-
-        TextView settings=txt("☷",21,MUTED,true);
-        settings.setGravity(Gravity.CENTER);
-        settings.setBackground(shape(PANEL2,50,Color.rgb(51,48,60)));
-        LinearLayout.LayoutParams setp=new LinearLayout.LayoutParams(dp(44),dp(44));
-        setp.leftMargin=dp(8);
-        right.addView(settings,setp);
-        settings.setOnClickListener(v->open("Settings"));
-
-        h.addView(right,new LinearLayout.LayoutParams(-2,-1));
+        verp.leftMargin=dp(10);
+        h.addView(version,verp);
         return h;
     }
 
@@ -169,22 +148,37 @@ public class MainActivity extends Activity {
         TextView version=txt("  Vanilla   ⌄  ",15,TEXT,true);
         version.setGravity(Gravity.CENTER);
         version.setBackground(shape(PANEL2,24,Color.rgb(50,47,59)));
-        LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(dp(155),dp(52));
+        LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(dp(132),dp(46));
         actions.addView(version,vp);
-        TextView play=txt("▶    Play Minecraft",16,BG,true);
+        TextView play=txt("▶   Play Game",15,BG,true);
         play.setGravity(Gravity.CENTER);
         play.setBackground(shape(Color.rgb(190,187,199),24,Color.TRANSPARENT));
-        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(52),1);
+        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(46),1);
         pp.leftMargin=dp(10);
         actions.addView(play,pp);
         LinearLayout.LayoutParams actp=new LinearLayout.LayoutParams(-1,-2);
         actp.topMargin=dp(12);
         content.addView(actions,actp);
         play.setOnClickListener(v->toast("Game launching will be connected after the runtime setup."));
-        version.setOnClickListener(v->toast("Minecraft version selector will be added."));
+        version.setOnClickListener(v->showVersionPicker(version));
 
         TextView status=txt("Searching... You can switch tabs while results load.",13,MUTED,false);
         content.addView(status,margins(-1,-2,0,dp(12),0,0));
+    }
+
+    private void showVersionPicker(TextView button) {
+        final String[] versions={"Latest release","1.21.11","1.21.10","1.21.8","1.20.6","1.20.4","Download another version..."};
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Select Minecraft version")
+            .setItems(versions,(dialog,which)->{
+                if(which==versions.length-1) {
+                    toast("Version downloads will be connected next.");
+                } else {
+                    String chosen=versions[which];
+                    button.setText("  "+chosen+"  ⌄  ");
+                    toast(chosen+" selected");
+                }
+            }).show();
     }
 
     private void open(String name) {
