@@ -1,0 +1,4 @@
+[submodule "mojo"]
+	path = mojo
+	url = https://github.com/ItzJikaxMe/MojoLauncher
+	branch = v3_openjdk
