@@ -841,7 +841,8 @@ public class MainActivity extends Activity {
     private void downloadModrinthProject(ModrinthClient client,org.json.JSONObject project,String folder,String game) {
         new Thread(()->{
             try{
-                org.json.JSONObject version=client.versions(project.getString("project_id"),game,selectedLoader);
+                String compatibleLoader=("mods".equals(folder)||"modpacks".equals(folder))?selectedLoader:"Vanilla";
+                org.json.JSONObject version=client.versions(project.getString("project_id"),game,compatibleLoader);
                 String directory=folder;
                 java.io.File file=client.downloadPrimary(version,directory);
                 runOnUiThread(()->{toast("Downloaded "+file.getName());showPage();});
