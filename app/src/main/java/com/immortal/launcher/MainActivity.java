@@ -27,6 +27,7 @@ public class MainActivity extends Activity {
         MUTED=Color.rgb(157,154,170), ACCENT=Color.rgb(151,111,235);
     private LinearLayout content, navColumn;
     private String selected="Play";
+    private String settingsPage="";
     private String selectedMinecraftVersion="";
     private String selectedLoader="Vanilla";
     private TextView versionButton, downloadStatus;
@@ -305,61 +306,287 @@ public class MainActivity extends Activity {
     }
 
     private void showSettingsPage() {
-        content.addView(txt("Launcher Settings",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(10)));
-        content.addView(txt("Memory Allocation",15,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(2)));
-        android.app.ActivityManager.MemoryInfo memoryInfo=new android.app.ActivityManager.MemoryInfo();
-        ((android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(memoryInfo);
-        int deviceRamMb=(int)(memoryInfo.totalMem/1048576L);
-        int maxRamMb=Math.max(1024,Math.min(8192,(int)(deviceRamMb*0.65f)));
-        int minRamMb=512;
-        int memory=Math.min(maxRamMb,Math.max(minRamMb,prefs.getInt("ram_mb",Math.min(2048,maxRamMb/2))));
-        TextView ramValue=txt(memory+" MB",13,ACCENT,true);
-        content.addView(ramValue,margins(-1,-2,dp(5),0,0,0));
-        SeekBar ram=new SeekBar(this); ram.setMax(maxRamMb-minRamMb); ram.setProgress(Math.max(0,Math.min(maxRamMb-minRamMb,memory-minRamMb)));
-        content.addView(ram,margins(-1,dp(34),0,0,0,dp(8)));
-        ram.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-            public void onProgressChanged(SeekBar b,int value,boolean user){int mb=minRamMb+value;ramValue.setText(mb+" MB");}
-            public void onStartTrackingTouch(SeekBar b){}
-            public void onStopTrackingTouch(SeekBar b){prefs.edit().putInt("ram_mb",minRamMb+b.getProgress()).apply();}
-        });
-        TextView runtime=txt("Java Runtime  •  "+prefs.getString("java_runtime","Auto / not selected")+"  ⌄",13,TEXT,true);
-        runtime.setPadding(dp(10),dp(10),dp(10),dp(10)); runtime.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
-        content.addView(runtime,margins(-1,dp(42),0,dp(3),0,dp(3))); runtime.setOnClickListener(v->chooseJavaRuntime(runtime));
-        settingsText("JVM Arguments", "-Xmx is managed by the RAM slider; add other JVM flags here", "jvm_args");
-        settingsText("Game Resolution", "Default / device resolution", "resolution");
-        settingsSwitch("Enable VSync","vsync",true);
-        settingsSwitch("Show FPS","show_fps",false);
-        settingsSwitch("Fullscreen","fullscreen",true);
-        settingsSwitch("Use custom controls","custom_controls",false);
-        settingsSwitch("Keep launcher logs","logs",true);
-        TextView note=txt("Java runtimes are selected from runtimes installed inside the app. Runtime download/installation and applying JVM settings to the game process are not connected yet.",11,MUTED,false);
-        content.addView(note,margins(-1,-2,dp(5),dp(12),dp(5),dp(8)));
+        if(!settingsPage.isEmpty()) {
+            switch(settingsPage) {
+                case "java": showJavaSettings(); return;
+                case "video": showVideoSettings(); return;
+                case "controls": showControlSettings(); return;
+                case "misc": showMiscSettings(); return;
+                case "experimental": showExperimentalSettings(); return;
+                case "general": showGeneralSettings(); return;
+            }
+        }
+        content.addView(txt("Settings",23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(5)));
+        content.addView(txt("Every part of Immortal, organized in its own space.",12,MUTED,false),
+            margins(-1,-2,dp(5),0,0,dp(12)));
+        settingsCategory("☕","Java & Memory","Runtime manager, RAM allocation, JVM arguments and sandbox","java");
+        settingsCategory("▧","Video & Graphics","Renderer, resolution, display and graphics drivers","video");
+        settingsCategory("⌖","Controls & Input","Touch layout, gestures, mouse, gyro and controllers","controls");
+        settingsCategory("⚙","Advanced & Miscellaneous","Downloads, verification, cache and launcher behavior","misc");
+        settingsCategory("⚗","Experimental","GPU and performance options for supported devices","experimental");
+        settingsCategory("文","Language & Permissions","Language preference and Android permissions","general");
     }
 
+    private void settingsCategory(String icon,String title,String subtitle,String page) {
+        LinearLayout row=card();
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(13),dp(11),dp(13),dp(11));
+        TextView symbol=txt(icon,22,ACCENT,true);
+        symbol.setGravity(Gravity.CENTER);
+        row.addView(symbol,new LinearLayout.LayoutParams(dp(42),dp(42)));
+        LinearLayout labels=new LinearLayout(this);
+        labels.setOrientation(LinearLayout.VERTICAL);
+        labels.setPadding(dp(10),0,dp(4),0);
+        labels.addView(txt(title,14,TEXT,true));
+        labels.addView(txt(subtitle,11,MUTED,false),margins(-1,-2,0,dp(3),0,0));
+        row.addView(labels,new LinearLayout.LayoutParams(0,-2,1));
+        row.addView(txt("›",24,MUTED,true));
+        content.addView(row,margins(-1,-2,0,dp(4),0,dp(4)));
+        row.setOnClickListener(v->{settingsPage=page;showPage();});
+    }
+
+    private void settingsHeader(String title,String subtitle) {
+        TextView back=txt("‹   Settings",12,ACCENT,true);
+        back.setGravity(Gravity.CENTER_VERTICAL);
+        content.addView(back,margins(-1,dp(30),0,0,0,dp(7)));
+        back.setOnClickListener(v->{settingsPage="";showPage();});
+        content.addView(txt(title,22,TEXT,true),margins(-1,-2,0,0,0,dp(3)));
+        content.addView(txt(subtitle,11,MUTED,false),margins(-1,-2,0,0,0,dp(10)));
+    }
+
+    private void settingsAction(String title,String summary,String action) {
+        LinearLayout row=card();
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.addView(txt(title,13,TEXT,true));
+        row.addView(txt(summary,11,MUTED,false),margins(-1,-2,0,dp(3),0,0));
+        content.addView(row,margins(-1,-2,0,dp(3),0,dp(3)));
+        row.setOnClickListener(v->{
+            if("runtime".equals(action)) {
+                chooseJavaRuntime(txt("Java Runtime",13,TEXT,true));
+            } else if("controls".equals(action)) {
+                startActivity(new android.content.Intent(this,ControlLayoutEditorActivity.class));
+            } else if("drivers".equals(action)) {
+                toast("Driver installation and switching need the graphics runtime bridge.");
+            } else if("migration".equals(action)) {
+                toast("Data migration will be available when the instance storage manager is integrated.");
+            } else if("cache".equals(action)) {
+                toast("No metadata cache has been created by this build yet.");
+            } else if("mic".equals(action)) {
+                toast("Microphone permission is managed by Android when voice chat support is added.");
+            }
+        });
+    }
+
+    private void showJavaSettings() {
+        settingsHeader("Java & Memory","Manage the Java environment used by Minecraft.");
+        settingsSection("RUNTIME MANAGER","Choose and manage installed Java runtimes");
+        settingsAction("Manage Java Runtimes","Select an installed runtime. Runtime installation is not connected yet.","runtime");
+        java.io.File runtimeRoot=new java.io.File(getFilesDir(),"runtimes");
+        java.io.File[] dirs=runtimeRoot.listFiles();
+        int count=0;
+        if(dirs!=null) for(java.io.File d:dirs) if(d.isDirectory()) count++;
+        addSettingsNote(count==0?"No runtime folders found. The runtime installer still needs to be connected.":count+" runtime folder(s) detected.");
+        settingsSection("MEMORY","Set the maximum memory available to Minecraft");
+        android.app.ActivityManager.MemoryInfo mi=new android.app.ActivityManager.MemoryInfo();
+        ((android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(mi);
+        int total=(int)(mi.totalMem/1048576L);
+        int max=Math.max(512,Math.min(8192,total-(total<3064?800:1024)));
+        if(!android.os.Process.is64Bit()) max=Math.min(1024,max);
+        max=Math.max(256,max);
+        settingsSlider("RAM allocation","ram_mb",256,max,128,
+            Math.max(256,Math.min(max,prefs.getInt("ram_mb",Math.min(2048,max))))," MB");
+        settingsSection("JAVA ARGUMENTS","Advanced virtual machine options");
+        settingsText("JVM Arguments","Example: -XX:+UseG1GC","jvm_args");
+        settingsSwitch("Java sandbox","java_sandbox",true);
+        addSettingsNote("RAM, JVM flags and runtime selection are stored. They are applied when the Minecraft Java launch engine is connected.");
+    }
+
+    private void showVideoSettings() {
+        settingsHeader("Video & Graphics","Display, renderer and graphics driver preferences.");
+        settingsSection("RENDERER","Choose the graphics backend");
+        android.content.pm.ConfigurationInfo ci=((android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE)).getDeviceConfigurationInfo();
+        String gl=ci==null?"":ci.getGlEsVersion();
+        java.util.ArrayList<String> labels=new java.util.ArrayList<>();
+        java.util.ArrayList<String> values=new java.util.ArrayList<>();
+        labels.add("Auto"); values.add("auto");
+        labels.add("OpenGL ES 2"); values.add("gles2");
+        if(gl.startsWith("3")) { labels.add("OpenGL ES 3"); values.add("gles3"); }
+        if(getPackageManager().hasSystemFeature("android.hardware.vulkan.level")) { labels.add("Vulkan"); values.add("vulkan"); }
+        settingsChoice("Preferred renderer","renderer",labels.toArray(new String[0]),values.toArray(new String[0]));
+        settingsSection("DISPLAY","Resolution and screen behavior");
+        settingsSwitch("Ignore display cutout","ignore_notch",false);
+        settingsSlider("Resolution scale","resolution_scale",25,100,5,prefs.getInt("resolution_scale",100)," %");
+        settingsSwitch("Sustained performance mode","sustained_performance",false);
+        settingsSwitch("Use alternate display surface","alternate_surface",false);
+        settingsSwitch("Force VSync","vsync",false);
+        settingsSwitch("Use ANGLE translation layer","use_angle",false);
+        settingsSection("GRAPHICS DRIVERS","Vulkan / Zink driver configuration");
+        settingsAction("Manage graphics drivers","Install or select a compatible driver when the graphics bridge is available.","drivers");
+        settingsSwitch("Prefer system Vulkan driver","system_vulkan_driver",false);
+        addSettingsNote("Renderer and driver options are saved as preferences. Actual renderer switching requires the Minecraft graphics runtime; unsupported options may be ignored.");
+    }
+
+    private void showControlSettings() {
+        settingsHeader("Controls & Input","Customize touch, gestures, mouse and external controllers.");
+        settingsSection("TOUCH LAYOUT","Edit and manage on-screen controls");
+        settingsAction("Edit control layout","Open the in-game editor to move, resize and customize buttons.","controls");
+        settingsAction("Import / Export control layout","Share a custom control layout file.","controls");
+        settingsSection("GESTURES","Touch gesture behavior");
+        settingsSwitch("Disable gestures","disable_gestures",false);
+        settingsSwitch("Disable double-tap hand swap","disable_double_tap",false);
+        settingsSlider("Long-press activation delay","long_press_ms",100,1000,50,prefs.getInt("long_press_ms",300)," ms");
+        settingsSection("BUTTONS","Appearance and sizing");
+        settingsSlider("Button size","button_scale",50,200,5,prefs.getInt("button_scale",100)," %");
+        settingsSlider("Button transparency","button_transparency",0,100,5,prefs.getInt("button_transparency",100)," %");
+        settingsSwitch("Use uppercase button labels","button_all_caps",true);
+        settingsSection("VIRTUAL MOUSE","Pointer behavior");
+        settingsSlider("Mouse pointer size","mouse_scale",50,200,5,prefs.getInt("mouse_scale",100)," %");
+        settingsSlider("Mouse speed","mouse_speed",50,200,5,prefs.getInt("mouse_speed",100)," %");
+        settingsSwitch("Start with virtual mouse enabled","mouse_start",false);
+        settingsSection("GYROSCOPE","Motion-based camera controls");
+        boolean hasGyro=getPackageManager().hasSystemFeature("android.hardware.sensor.gyroscope");
+        if(hasGyro) {
+            settingsSwitch("Enable gyroscope","gyro_enabled",false);
+            settingsSlider("Gyroscope sensitivity","gyro_sensitivity",25,300,5,prefs.getInt("gyro_sensitivity",100)," %");
+            settingsSlider("Gyroscope sample rate","gyro_rate",5,100,5,prefs.getInt("gyro_rate",20)," ms");
+            settingsSwitch("Smooth gyro movement","gyro_smoothing",true);
+            settingsSwitch("Invert X axis","gyro_invert_x",false);
+            settingsSwitch("Invert Y axis","gyro_invert_y",false);
+        } else addSettingsNote("This device does not report a gyroscope sensor.");
+        settingsSection("CONTROLLERS & KEYBOARD","External input devices");
+        settingsAction("Remap gamepad buttons","Configure controller button mapping.","controls");
+        settingsSlider("Controller deadzone","gamepad_deadzone",0,50,1,prefs.getInt("gamepad_deadzone",15)," %");
+        settingsSwitch("Keyboard auto-panning","keyboard_autopan",false);
+        addSettingsNote("Control preferences are stored. They affect gameplay after the touch and controller input engine is connected.");
+    }
+
+    private void showMiscSettings() {
+        settingsHeader("Advanced & Miscellaneous","Launcher behavior, downloads, verification and storage.");
+        settingsSection("GAME FILES","Integrity and startup behavior");
+        settingsSwitch("Verify game files","verify_game_files",true);
+        settingsSwitch("Fast startup check","fast_startup_check",true);
+        settingsSwitch("Verify downloaded manifests","verify_manifest",true);
+        settingsSwitch("Show low-memory warning","show_memory_warning",true);
+        settingsSection("DOWNLOADS","Select source and connection behavior");
+        settingsChoice("Download source","download_source",
+            new String[]{"Default","Official Mojang","Mirror (when available)"},
+            new String[]{"default","mojang","mirror"});
+        settingsSwitch("Disable server blocklist","disable_server_blocklist",false);
+        settingsSection("STORAGE & MAINTENANCE","Manage launcher data");
+        settingsAction("Clear metadata cache","Remove cached version and metadata information.","cache");
+        settingsAction("Clean partial downloads","Remove incomplete download files.","cache");
+        settingsAction("Migrate launcher data","Move launcher data to another storage location.","migration");
+        settingsAction("Microphone permission","Request microphone access for future voice features.","mic");
+        addSettingsNote("Verification, download-source and maintenance actions will become active as the corresponding installer and storage services are connected.");
+    }
+
+    private void showExperimentalSettings() {
+        settingsHeader("Experimental","Advanced options. Change these only when you know what they do.");
+        settingsSection("CPU & GPU","Device-specific performance flags");
+        settingsSwitch("Prefer big CPU cores","big_core_affinity",false);
+        settingsSwitch("Freedreno system memory mode","freedreno_sysmem",false);
+        settingsSwitch("OpenSL audio backend","opensl_audio",false);
+        settingsSwitch("UBWC graphics workaround","ubwc_workaround",false);
+        settingsSwitch("Dump graphics shaders","dump_shaders",false);
+        addSettingsNote("Some options are specific to certain GPU vendors and may have no effect on other devices. These flags are saved but are not yet passed to the game runtime.");
+    }
+
+    private void showGeneralSettings() {
+        settingsHeader("Language & Permissions","General launcher preferences.");
+        settingsSection("LANGUAGE","Choose launcher text behavior");
+        settingsSwitch("Force English","force_english",false);
+        settingsSection("ANDROID PERMISSIONS","System-level access");
+        settingsAction("Microphone permission","Android will request access when a feature requires it.","mic");
+        settingsSwitch("Enable update notifications","notifications_enabled",true);
+    }
+
+    private void settingsSection(String title,String subtitle) {
+        LinearLayout section=card();
+        section.setOrientation(LinearLayout.VERTICAL);
+        TextView heading=txt(title,13,TEXT,true);
+        section.addView(heading);
+        section.addView(txt(subtitle,11,MUTED,false),margins(-1,-2,0,dp(2),0,0));
+        content.addView(section,margins(-1,-2,0,dp(4),0,dp(5)));
+    }
+
+    private void addSettingsNote(String message) {
+        TextView note=txt(message,11,MUTED,false);
+        note.setPadding(dp(3),dp(4),dp(3),dp(8));
+        content.addView(note,new LinearLayout.LayoutParams(-1,-2));
+    }
+
+    private void settingsChoice(String title,String key,String[] labels,String[] values) {
+        String selectedValue=prefs.getString(key,values[0]);
+        int selectedIndex=0;
+        for(int i=0;i<values.length;i++) if(values[i].equals(selectedValue)) selectedIndex=i;
+        final int initialIndex=selectedIndex;
+        TextView choice=txt(title+"  •  "+labels[initialIndex]+"  ⌄",13,TEXT,true);
+        choice.setGravity(Gravity.CENTER_VERTICAL);
+        choice.setPadding(dp(12),0,dp(12),0);
+        choice.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
+        content.addView(choice,margins(-1,dp(42),0,dp(3),0,dp(4)));
+        choice.setOnClickListener(v->new android.app.AlertDialog.Builder(this)
+            .setTitle(title).setSingleChoiceItems(labels,initialIndex,(dialog,which)->{
+                prefs.edit().putString(key,values[which]).apply();
+                choice.setText(title+"  •  "+labels[which]+"  ⌄");
+                dialog.dismiss();
+            }).setNegativeButton("Cancel",null).show());
+    }
+
+    private void settingsSlider(String title,String key,int min,int max,int step,int initial,String suffix) {
+        LinearLayout block=new LinearLayout(this);
+        block.setOrientation(LinearLayout.VERTICAL);
+        block.setPadding(dp(3),dp(4),dp(3),dp(4));
+        LinearLayout line=new LinearLayout(this);
+        line.setGravity(Gravity.CENTER_VERTICAL);
+        TextView label=txt(title,13,TEXT,true);
+        line.addView(label,new LinearLayout.LayoutParams(0,-2,1));
+        int safeValue=Math.max(min,Math.min(max,initial));
+        TextView value=txt(safeValue+suffix,12,ACCENT,true);
+        line.addView(value);
+        block.addView(line);
+        SeekBar seek=new SeekBar(this);
+        int steps=Math.max(1,(max-min)/step);
+        seek.setMax(steps);
+        seek.setProgress(Math.max(0,Math.min(steps,(safeValue-min)/step)));
+        block.addView(seek,new LinearLayout.LayoutParams(-1,dp(30)));
+        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onProgressChanged(SeekBar bar,int progress,boolean fromUser){
+                value.setText((min+progress*step)+suffix);
+            }
+            public void onStartTrackingTouch(SeekBar bar){}
+            public void onStopTrackingTouch(SeekBar bar){
+                prefs.edit().putInt(key,min+bar.getProgress()*step).apply();
+            }
+        });
+        content.addView(block,margins(-1,-2,0,dp(2),0,dp(3)));
+    }
     private void chooseJavaRuntime(TextView view) {
         java.io.File root=new java.io.File(getFilesDir(),"runtimes");
         java.util.ArrayList<String> names=new java.util.ArrayList<>();
+        names.add("Auto");
         java.io.File[] dirs=root.listFiles();
-        if(dirs!=null) for(java.io.File d:dirs) if(d.isDirectory()) names.add(d.getName());
-        if(names.isEmpty()) {
-            new android.app.AlertDialog.Builder(this).setTitle("Java Runtime")
-                .setMessage("No Java runtimes are installed yet. Immortal needs an Android-compatible Java runtime before Minecraft can launch.")
-                .setPositiveButton("OK",null).show(); return;
+        if(dirs!=null) {
+            java.util.Arrays.sort(dirs,(a,b)->a.getName().compareToIgnoreCase(b.getName()));
+            for(java.io.File d:dirs) if(d.isDirectory()) names.add(d.getName());
         }
-        names.add(0,"Auto");
         new android.app.AlertDialog.Builder(this).setTitle("Choose Java Runtime")
             .setItems(names.toArray(new String[0]),(d,which)->{
-                String value=names.get(which); prefs.edit().putString("java_runtime",value).apply();
+                String value=names.get(which);
+                prefs.edit().putString("java_runtime",value).apply();
                 view.setText("Java Runtime  •  "+value+"  ⌄");
+                if("Auto".equals(value) && names.size()==1)
+                    toast("No compatible runtime is installed yet.");
             }).setNegativeButton("Cancel",null).show();
     }
+
     private void settingsText(String title,String hint,String key) {
         content.addView(txt(title,14,TEXT,true),margins(-1,-2,dp(5),dp(7),0,dp(3)));
         EditText input=new EditText(this); input.setTextSize(12); input.setTextColor(TEXT);
         input.setHintTextColor(MUTED); input.setSingleLine(false); input.setHint(hint);
         input.setText(prefs.getString(key,""));
         input.setPadding(dp(10),dp(5),dp(10),dp(5)); input.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
-        content.addView(input,margins(-1,dp(42),0,0,0,dp(3)));
+        content.addView(input,margins(-1,dp(58),0,0,0,dp(3)));
         input.setOnFocusChangeListener((v,has)->{if(!has)prefs.edit().putString(key,input.getText().toString()).apply();});
     }
 
@@ -741,6 +968,7 @@ public class MainActivity extends Activity {
     }
 
     private void open(String name) {
+        settingsPage="";
         selected=name;
         setContentView(build());
     }
