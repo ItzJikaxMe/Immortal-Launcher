@@ -128,14 +128,18 @@ public final class ModrinthModpackInstaller {
             String path = item.optString("path", "");
             if (path.isEmpty()) continue;
             File target = safeTarget(root, path);
-            if (target.isFile()
-                    && target.length() == item.optLong("fileSize", -1)) {
-                completed++;
-                continue;
+            JSONObject hashes = item.optJSONObject("hashes");
+            if (target.isFile() && target.length() == item.optLong("fileSize", -1)) {
+                try {
+                    verify(target, hashes);
+                    completed++;
+                    continue;
+                } catch (IOException corruptExistingFile) {
+                    // Redownload same-size files when their manifest hash does not match.
+                }
             }
             JSONArray urls = item.optJSONArray("downloads");
             if (urls == null || urls.length() == 0) throw new IOException("No download URL for " + path);
-            JSONObject hashes = item.optJSONObject("hashes");
             ensureDir(target.getParentFile());
             File temp = new File(target.getParentFile(), target.getName() + ".part");
             IOException failure = null;
