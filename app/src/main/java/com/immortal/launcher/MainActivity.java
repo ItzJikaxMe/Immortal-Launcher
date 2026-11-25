@@ -27,7 +27,7 @@ public class MainActivity extends Activity {
         MUTED=Color.rgb(157,154,170), ACCENT=Color.rgb(151,111,235);
     private LinearLayout content, navColumn;
     private String selected="Play";
-    private String selectedMinecraftVersion="1.21.11";
+    private String selectedMinecraftVersion="";
     private String selectedLoader="Vanilla";
     private TextView versionButton, downloadStatus;
     private SharedPreferences prefs;
@@ -41,7 +41,7 @@ public class MainActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(0);
         setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         prefs=getSharedPreferences("immortal_settings",MODE_PRIVATE);
-        selectedMinecraftVersion=prefs.getString("selected_version","1.21.11");
+        selectedMinecraftVersion=prefs.getString("selected_version","");
         selectedLoader=prefs.getString("selected_loader","Vanilla");
         setContentView(build());
     }
@@ -180,29 +180,43 @@ public class MainActivity extends Activity {
         });
         add.setOnClickListener(v->open("Add Version"));
 
-        versionButton=txt("Installed version: "+selectedMinecraftVersion+"  ⌄",13,TEXT,true);
-        versionButton.setGravity(Gravity.CENTER_VERTICAL); versionButton.setPadding(dp(13),0,dp(12),0);
-        versionButton.setBackground(shape(PANEL2,18,Color.rgb(50,47,59)));
-        content.addView(versionButton,margins(-1,dp(38),0,dp(9),0,0));        versionButton.setOnClickListener(v->showInstalledVersionPicker());
-
-        downloadStatus=txt("Choose an installed version or add a new one.",12,MUTED,false);
-        content.addView(downloadStatus,margins(-1,-2,0,dp(10),0,0));
+        java.util.ArrayList<String> installed=getInstalledVersions();
+        TextView instance=txt(installed.isEmpty()?"No installed instance  •  Add Version":"Selected instance: "+selectedMinecraftVersion+"  ⌄",12,TEXT,true);
+        instance.setGravity(Gravity.CENTER_VERTICAL); instance.setPadding(dp(12),0,dp(12),0);
+        instance.setBackground(shape(PANEL2,14,Color.rgb(50,47,59)));
+        content.addView(instance,margins(-1,dp(36),0,dp(8),0,0));
+        instance.setOnClickListener(v->showInstalledVersionPicker());
     }    private void showAddVersionPage() {
         content.addView(txt("Add Version",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(8)));
         content.addView(txt("Choose an edition to install",13,MUTED,false),margins(-1,-2,dp(5),0,0,dp(10)));
-        addVersionAction("CREATE VANILLA INSTANCE","Vanilla");
-        addVersionAction("INSTALL OPTIFINE","OptiFine");
-        addVersionAction("CREATE FABRIC INSTANCE","Fabric");
-        addVersionAction("CREATE QUILT INSTANCE","Quilt");
-        addVersionAction("CREATE LEGACY FABRIC INSTANCE","Legacy Fabric");
-        addVersionAction("CREATE FORGE INSTANCE","Forge");
-        addVersionAction("CREATE NEOFORGE INSTANCE","NeoForge");
-        addVersionAction("CREATE MODPACK INSTANCE","Modpack");
-        TextView list=txt("Browse official Minecraft versions  →",13,ACCENT,true);
-        list.setPadding(dp(8),dp(10),dp(8),dp(10)); content.addView(list);
-        list.setOnClickListener(v->loadVersionCatalog());
-        downloadStatus=txt("Select a loader, then choose a Minecraft version.",12,MUTED,false);
-        content.addView(downloadStatus,margins(-1,-2,dp(8),dp(4),0,0));
+        content.addView(txt("1  •  Choose Minecraft version",13,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(5)));
+        TextView game=txt((selectedMinecraftVersion.isEmpty()?"Select a game version":selectedMinecraftVersion)+"  ⌄",13,TEXT,true);
+        game.setGravity(Gravity.CENTER_VERTICAL); game.setPadding(dp(12),0,dp(12),0);
+        game.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
+        content.addView(game,margins(-1,dp(42),0,0,0,dp(10)));
+        game.setOnClickListener(v->loadVersionCatalog());
+        content.addView(txt("2  •  Choose mod loader",13,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(5)));
+        TextView loader=txt(selectedLoader+"  ⌄",13,TEXT,true);
+        loader.setGravity(Gravity.CENTER_VERTICAL); loader.setPadding(dp(12),0,dp(12),0);
+        loader.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
+        content.addView(loader,margins(-1,dp(42),0,0,0,dp(10)));
+        loader.setOnClickListener(v->{
+            final String[] choices={"Vanilla","Fabric","Quilt","Forge","NeoForge"};
+            new android.app.AlertDialog.Builder(this).setTitle("Mod loader")
+                .setItems(choices,(d,w)->{selectedLoader=choices[w];prefs.edit().putString("selected_loader",selectedLoader).apply();showPage();})
+                .setNegativeButton("Cancel",null).show();
+        });
+        TextView install=txt("INSTALL SELECTED VERSION",13,BG,true);
+        install.setGravity(Gravity.CENTER); install.setBackground(shape(Color.rgb(190,187,199),14,Color.TRANSPARENT));
+        content.addView(install,margins(-1,dp(42),0,dp(4),0,dp(8)));
+        install.setOnClickListener(v->{
+            if(selectedMinecraftVersion.isEmpty()){toast("Choose a Minecraft version first.");return;}
+            if("Fabric".equals(selectedLoader)||"Quilt".equals(selectedLoader)) chooseLoaderBuildAndInstall();
+            else if("Vanilla".equals(selectedLoader)) showInstallConfirmation();
+            else toast(selectedLoader+" installer is not integrated yet. I won't create a fake installed profile.");
+        });
+        downloadStatus=txt("Choose the Minecraft version first, then choose its loader.",12,MUTED,false);
+        content.addView(downloadStatus,margins(-1,-2,dp(5),dp(4),0,0));
     }
 
     private void addVersionAction(String label,String loader) {
@@ -554,9 +568,10 @@ public class MainActivity extends Activity {
                         .setItems(choices,(d,which)->{
                             selectedMinecraftVersion=ids.get(which);
                             prefs.edit().putString("selected_version",selectedMinecraftVersion).putString("selected_loader",selectedLoader).apply();
-                            if(downloadStatus!=null) downloadStatus.setText(selectedMinecraftVersion+" selected • "+selectedLoader);
-                            if("Play".equals(selected)) setContentView(build());
-                            else showInstallConfirmation();
+                            prefs.edit().putString("base_game_version",selectedMinecraftVersion).apply();
+                            if(downloadStatus!=null) downloadStatus.setText(selectedMinecraftVersion+" selected. Now choose a loader.");
+                            if("Add Version".equals(selected)) showPage();
+                            else if("Play".equals(selected)) setContentView(build());
                         }).setNegativeButton("Cancel",null).show();
                     if(downloadStatus!=null) downloadStatus.setText(ids.size()+" official releases and legacy versions loaded.");
                 });
@@ -569,6 +584,54 @@ public class MainActivity extends Activity {
         new android.app.AlertDialog.Builder(this).setTitle("Install "+selectedMinecraftVersion+" • "+selectedLoader)
             .setMessage("Install the official game version files now?")
             .setNegativeButton("Cancel",null).setPositiveButton("Install",(d,w)->downloadBaseVersion()).show();
+    }
+
+    private void chooseLoaderBuildAndInstall() {
+        final String game=selectedMinecraftVersion, loader=selectedLoader;
+        downloadStatus.setText("Loading compatible "+loader+" builds for "+game+"…");
+        new Thread(()->{
+            try {
+                String base="Fabric".equals(loader)?"https://meta.fabricmc.net/v2/versions/loader/":"https://meta.quiltmc.org/v3/versions/loader/";
+                org.json.JSONArray builds=new org.json.JSONArray(httpGet(base+java.net.URLEncoder.encode(game,"UTF-8")));
+                java.util.ArrayList<org.json.JSONObject> stable=new java.util.ArrayList<>();
+                java.util.ArrayList<String> labels=new java.util.ArrayList<>();
+                for(int i=0;i<builds.length();i++){
+                    org.json.JSONObject item=builds.getJSONObject(i),info=item.optJSONObject("loader");
+                    if(info==null) continue;
+                    if(!info.optBoolean("stable",false)) continue;
+                    stable.add(item); labels.add(info.optString("version")+"  •  Stable");
+                }
+                if(stable.isEmpty() && builds.length()>0){
+                    org.json.JSONObject item=builds.getJSONObject(0); stable.add(item);
+                    labels.add(item.optJSONObject("loader").optString("version")+"  •  First available build");
+                }
+                runOnUiThread(()->{
+                    if(stable.isEmpty()){downloadStatus.setText("No compatible "+loader+" builds for "+game);return;}
+                    new android.app.AlertDialog.Builder(this).setTitle(loader+" builds for Minecraft "+game)
+                        .setItems(labels.toArray(new String[0]),(d,w)->{
+                            String build=stable.get(w).optJSONObject("loader").optString("version");
+                            installWithLoaderBuild(game,loader,build);
+                        }).setNegativeButton("Cancel",null).show();
+                });
+            }catch(Exception e){runOnUiThread(()->downloadStatus.setText("Could not load "+loader+" builds: "+e.getMessage()));}
+        }).start();
+    }
+
+    private void installWithLoaderBuild(String game,String loader,String build) {
+        new Thread(()->{
+            try {
+                MinecraftInstaller gameInstaller=new MinecraftInstaller(this,m->runOnUiThread(()->{if(downloadStatus!=null)downloadStatus.setText(m);}));
+                gameInstaller.install(game);
+                LoaderInstaller loaderInstaller=new LoaderInstaller(this,m->runOnUiThread(()->{if(downloadStatus!=null)downloadStatus.setText(m);}));
+                String id=loaderInstaller.install(game,loader,build);
+                runOnUiThread(()->{
+                    selectedMinecraftVersion=id;
+                    prefs.edit().putString("selected_version",id).putString("base_game_version",game)
+                        .putString("selected_loader",loader).putString("selected_loader_build",build).apply();
+                    downloadStatus.setText(id+" installed successfully."); toast(id+" installed"); showPage();
+                });
+            }catch(Exception e){runOnUiThread(()->{if(downloadStatus!=null)downloadStatus.setText("Install failed: "+e.getMessage());});}
+        }).start();
     }
 
     private void chooseLoaderForVersion() {
