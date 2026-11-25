@@ -705,6 +705,7 @@ public class MainActivity extends Activity {
             }
             pendingModpackArchive=null;
             pendingModpackInfo=null;
+            clearPendingModpack();
             showPage();
             return;
         }
@@ -888,6 +889,11 @@ public class MainActivity extends Activity {
                 if ("Forge".equals(info.loader) || "NeoForge".equals(info.loader)) {
                     pendingModpackArchive = archive;
                     pendingModpackInfo = info;
+                    prefs.edit().putString("pending_mrpack_path", archive.getAbsolutePath())
+                            .putString("pending_mrpack_game", info.gameVersion)
+                            .putString("pending_mrpack_loader", info.loader)
+                            .putString("pending_mrpack_loader_version", info.loaderVersion == null ? "" : info.loaderVersion)
+                            .putString("pending_mrpack_name", info.name).apply();
                     String requested = "Forge".equals(info.loader)
                             ? info.gameVersion + "-" + info.loaderVersion : info.loaderVersion;
                     runOnUiThread(() -> {
@@ -924,12 +930,30 @@ public class MainActivity extends Activity {
         showPage();
     }
 
+    private void clearPendingModpack() {
+        prefs.edit().remove("pending_mrpack_path").remove("pending_mrpack_game")
+                .remove("pending_mrpack_loader").remove("pending_mrpack_loader_version")
+                .remove("pending_mrpack_name").apply();
+    }
+
     private void finishForgeModpackInstall(String installedVersionId) {
         java.io.File archive = pendingModpackArchive;
         ModrinthModpackInstaller.PackInfo info = pendingModpackInfo;
+        if (archive == null || info == null) {
+            String savedPath = prefs.getString("pending_mrpack_path", "");
+            if (!savedPath.isEmpty()) {
+                archive = new java.io.File(savedPath);
+                info = new ModrinthModpackInstaller.PackInfo(
+                        prefs.getString("pending_mrpack_game", ""),
+                        prefs.getString("pending_mrpack_loader", ""),
+                        prefs.getString("pending_mrpack_loader_version", ""),
+                        prefs.getString("pending_mrpack_name", "Modpack"));
+            }
+        }
         pendingModpackArchive = null;
         pendingModpackInfo = null;
-        if (archive == null || info == null) {
+        clearPendingModpack();
+        if (archive == null || info == null || !archive.isFile()) {
             toast("The pending modpack archive could not be recovered.");
             showPage();
             return;
