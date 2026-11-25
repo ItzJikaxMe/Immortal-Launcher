@@ -35,6 +35,8 @@ public class MainActivity extends Activity {
     private SharedPreferences prefs;
     private java.util.ArrayList<String> catalogIds = new java.util.ArrayList<>();
     private java.util.ArrayList<String> catalogLabels = new java.util.ArrayList<>();
+    private volatile java.io.File pendingModpackArchive;
+    private volatile ModrinthModpackInstaller.PackInfo pendingModpackInfo;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -693,6 +695,19 @@ public class MainActivity extends Activity {
             showPage();
             return;
         }
+        if(requestCode==203) {
+            if(resultCode==RESULT_OK && data!=null) {
+                String installed=data.getStringExtra(EngineForgeInstallActivity.EXTRA_INSTALLED_VERSION);
+                if(installed!=null && !installed.isEmpty()) {
+                    finishForgeModpackInstall(installed);
+                    return;
+                }
+            }
+            pendingModpackArchive=null;
+            pendingModpackInfo=null;
+            showPage();
+            return;
+        }
         if(resultCode!=RESULT_OK || data==null || data.getData()==null) return;
         String folder=requestCode==101?"mods":requestCode==102?"resourcepacks":requestCode==103?"shaderpacks":requestCode==104?"modpacks":"skins";
         String expected=requestCode==101?".jar":requestCode==105?".png":requestCode==104?".mrpack":".zip";
@@ -855,9 +870,9 @@ public class MainActivity extends Activity {
             try{
                 String compatibleLoader=("mods".equals(folder)||"modpacks".equals(folder))?selectedLoader:"Vanilla";
                 org.json.JSONObject version=client.versions(project.getString("project_id"),game,compatibleLoader);
-                String directory=folder;
-                java.io.File file=client.downloadPrimary(version,directory);
-                runOnUiThread(()->{toast("Downloaded "+file.getName());showPage();});
+                java.io.File file=client.downloadPrimary(version,folder);
+                if("modpacks".equals(folder)) installModrinthModpack(file);
+                else runOnUiThread(()->{toast("Downloaded "+file.getName());showPage();});
             }catch(Exception e){runOnUiThread(()->toast("Download failed: "+e.getMessage()));}
         }).start();
     }
@@ -869,24 +884,70 @@ public class MainActivity extends Activity {
                     message -> runOnUiThread(() -> {
                         if (downloadStatus != null) downloadStatus.setText(message);
                     }));
+                ModrinthModpackInstaller.PackInfo info = installer.inspect(archive);
+                if ("Forge".equals(info.loader) || "NeoForge".equals(info.loader)) {
+                    pendingModpackArchive = archive;
+                    pendingModpackInfo = info;
+                    String requested = "Forge".equals(info.loader)
+                            ? info.gameVersion + "-" + info.loaderVersion : info.loaderVersion;
+                    runOnUiThread(() -> {
+                        Intent intent = new Intent(this, EngineForgeInstallActivity.class);
+                        intent.putExtra(EngineForgeInstallActivity.EXTRA_GAME_VERSION, info.gameVersion);
+                        intent.putExtra(EngineForgeInstallActivity.EXTRA_LOADER, info.loader);
+                        intent.putExtra(EngineForgeInstallActivity.EXTRA_REQUESTED_BUILD, requested);
+                        startActivityForResult(intent, 203);
+                    });
+                    return;
+                }
                 ModrinthModpackInstaller.Result result = installer.install(archive);
-                runOnUiThread(() -> {
-                    selectedMinecraftVersion = result.installedVersionId;
-                    selectedLoader = result.loader;
-                    prefs.edit()
-                        .putString("selected_version", result.installedVersionId)
-                        .putString("base_game_version", result.gameVersion)
-                        .putString("selected_loader", result.loader)
-                        .putString("selected_loader_build", result.loaderVersion == null ? "" : result.loaderVersion)
-                        .apply();
-                    toast("Installed modpack: " + result.name);
-                    showPage();
-                });
+                runOnUiThread(() -> applyInstalledModpack(result));
             } catch (Exception error) {
                 runOnUiThread(() -> {
                     String message = "Modpack install failed: " + error.getMessage();
                     if (downloadStatus != null) downloadStatus.setText(message);
                     toast(message);
+                });
+            }
+        }).start();
+    }
+
+    private void applyInstalledModpack(ModrinthModpackInstaller.Result result) {
+        selectedMinecraftVersion = result.installedVersionId;
+        selectedLoader = result.loader;
+        prefs.edit()
+            .putString("selected_version", result.installedVersionId)
+            .putString("base_game_version", result.gameVersion)
+            .putString("selected_loader", result.loader)
+            .putString("selected_loader_build", result.loaderVersion == null ? "" : result.loaderVersion)
+            .apply();
+        toast("Installed modpack: " + result.name);
+        showPage();
+    }
+
+    private void finishForgeModpackInstall(String installedVersionId) {
+        java.io.File archive = pendingModpackArchive;
+        ModrinthModpackInstaller.PackInfo info = pendingModpackInfo;
+        pendingModpackArchive = null;
+        pendingModpackInfo = null;
+        if (archive == null || info == null) {
+            toast("The pending modpack archive could not be recovered.");
+            showPage();
+            return;
+        }
+        new Thread(() -> {
+            try {
+                ModrinthModpackInstaller installer = new ModrinthModpackInstaller(this,
+                    message -> runOnUiThread(() -> {
+                        if (downloadStatus != null) downloadStatus.setText(message);
+                    }));
+                ModrinthModpackInstaller.Result result = installer.installPackFiles(archive, info, installedVersionId);
+                runOnUiThread(() -> applyInstalledModpack(result));
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    String message = "Modpack files failed to install: " + error.getMessage();
+                    if (downloadStatus != null) downloadStatus.setText(message);
+                    toast(message);
+                    showPage();
                 });
             }
         }).start();
