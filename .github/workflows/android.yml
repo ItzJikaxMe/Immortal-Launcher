@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - immortal-full-engine
   pull_request:
     branches:
       - main
