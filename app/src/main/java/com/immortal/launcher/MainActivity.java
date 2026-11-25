@@ -789,7 +789,7 @@ public class MainActivity extends Activity {
                     String type=item.optString("type","");
                     if(type.equals("release") || type.equals("snapshot") || type.equals("old_beta") || type.equals("old_alpha")) {
                         ids.add(id);
-                        labels.add(id+(type.equals("release")?"  •  Release":type.equals("old_beta")?"  •  Old Beta":"  •  Old Alpha"));
+                        labels.add(id+(type.equals("release")?"  •  Release":type.equals("snapshot")?"  •  Snapshot":type.equals("old_beta")?"  •  Old Beta":"  •  Old Alpha"));
                     }
                 }
                 catalogIds=ids; catalogLabels=labels;                runOnUiThread(() -> {
