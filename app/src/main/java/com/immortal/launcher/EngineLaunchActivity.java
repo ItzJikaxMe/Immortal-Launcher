@@ -22,6 +22,7 @@ import git.artdeell.mojo.extra.ExtraCore;
 import git.artdeell.mojo.instances.Instance;
 import git.artdeell.mojo.instances.Instances;
 import git.artdeell.mojo.prefs.LauncherPreferences;
+import git.artdeell.mojo.progresskeeper.ProgressKeeper;
 import git.artdeell.mojo.tasks.AsyncVersionList;
 import git.artdeell.mojo.tasks.AsyncAssetManager;
 
@@ -101,8 +102,12 @@ public final class EngineLaunchActivity extends LauncherActivity {
     private void dispatchWhenResumed() {
         if (!resumed || !versionListReady || launchDispatched) return;
         launchDispatched = true;
-        showStatus("Downloading missing libraries and Android native files…");
-        ExtraCore.setValue(ExtraConstants.LAUNCH_GAME, true);
+        showStatus("Finishing setup and checking installed components…");
+        ProgressKeeper.waitUntilDone(() -> runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            showStatus("Downloading missing libraries and Android native files…");
+            ExtraCore.setValue(ExtraConstants.LAUNCH_GAME, true);
+        }));
     }
 
     private void applyImmortalPreferences() {
