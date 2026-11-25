@@ -655,6 +655,11 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode,int resultCode,android.content.Intent data) {
         super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode==201) {
+            if(resultCode==RESULT_OK) toast("Microsoft account connected.");
+            showPage();
+            return;
+        }
         if(resultCode!=RESULT_OK || data==null || data.getData()==null) return;
         String folder=requestCode==101?"mods":requestCode==102?"resourcepacks":requestCode==103?"shaderpacks":requestCode==104?"modpacks":"skins";
         String expected=requestCode==101?".jar":requestCode==105?".png":requestCode==104?".mrpack":".zip";
@@ -688,22 +693,66 @@ public class MainActivity extends Activity {
 
     private void showAccountsPage() {
         content.addView(txt("Accounts",23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(8)));
+        boolean microsoft = prefs.getBoolean("microsoft_signed_in", false);
+        String active = microsoft
+                ? "Microsoft  •  " + prefs.getString("microsoft_player", "Connected")
+                : "Offline  •  " + prefs.getString("offline_player", "Player");
+        LinearLayout activeCard=card();
+        activeCard.setOrientation(LinearLayout.VERTICAL);
+        activeCard.addView(txt("ACTIVE ACCOUNT",10,MUTED,true));
+        activeCard.addView(txt(active,15,TEXT,true),margins(-1,-2,0,dp(4),0,0));
+        activeCard.addView(txt(microsoft
+                ? "Microsoft authentication is active for the next game session."
+                : "Offline profiles work in single-player and servers that allow offline accounts.",12,MUTED,false));
+        content.addView(activeCard,margins(-1,-2,0,0,0,dp(10)));
+
+        TextView microsoftButton=txt(microsoft?"Add another Microsoft account":"Sign in with Microsoft",13,BG,true);
+        microsoftButton.setGravity(Gravity.CENTER);
+        microsoftButton.setBackground(shape(Color.rgb(190,187,199),14,Color.TRANSPARENT));
+        content.addView(microsoftButton,margins(-1,dp(42),0,0,0,dp(12)));
+        microsoftButton.setOnClickListener(v->{
+            Intent intent=new Intent(this,MicrosoftLoginActivity.class);
+            startActivityForResult(intent,201);
+        });
+
         content.addView(txt("Offline profile",14,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(3)));
         EditText player=new EditText(this); player.setSingleLine(true); player.setTextColor(TEXT);
         player.setHintTextColor(MUTED); player.setHint("Player name");
         player.setText(prefs.getString("offline_player","Player"));
         player.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
         content.addView(player,margins(-1,dp(44),0,0,0,dp(8)));
-        TextView save=txt("Save offline profile",13,BG,true); save.setGravity(Gravity.CENTER);
+        TextView save=txt("Use offline profile",13,BG,true); save.setGravity(Gravity.CENTER);
         save.setBackground(shape(Color.rgb(190,187,199),14,Color.TRANSPARENT));
         content.addView(save,margins(dp(170),dp(38),0,0,0,dp(10)));
-        save.setOnClickListener(v->{String name=player.getText().toString().trim();
+        save.setOnClickListener(v->{
+            String name=player.getText().toString().trim();
             if(name.isEmpty() || name.length()>16){toast("Minecraft names must be 1–16 characters.");return;}
-            prefs.edit().putString("offline_player",name).apply();toast("Offline profile saved.");
+            try {
+                activateOfflineAccount(name);
+                toast("Offline profile selected.");
+                showPage();
+            } catch(Exception error) {
+                toast("Could not switch account: "+error.getMessage());
+            }
         });
-        LinearLayout note=card();
-        note.addView(txt("Microsoft account sign-in is not connected yet. Offline profiles do not provide access to online-mode servers.",12,MUTED,false));
-        content.addView(note,new LinearLayout.LayoutParams(-1,-2));
+    }
+
+    private void activateOfflineAccount(String username) throws Exception {
+        String profileId=java.util.UUID.nameUUIDFromBytes(
+                ("OfflinePlayer:"+username).getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .toString().replace("-","");
+        git.artdeell.mojo.authenticator.accounts.Account local =
+                git.artdeell.mojo.authenticator.accounts.Accounts.create(account -> {
+                    account.username=username;
+                    account.profileId=profileId;
+                    account.authType=git.artdeell.mojo.authenticator.AuthType.LOCAL;
+                    account.isMicrosoft=false;
+                    account.accessToken="0";
+                    account.refreshToken="0";
+                });
+        git.artdeell.mojo.authenticator.accounts.Accounts.setCurrent(local);
+        prefs.edit().putString("offline_player",username)
+                .putBoolean("microsoft_signed_in",false).apply();
     }
 
     private void showGraphicsPage() {
