@@ -388,13 +388,14 @@ public class MainActivity extends Activity {
         String selectedValue=prefs.getString(key,values[0]);
         int selectedIndex=0;
         for(int i=0;i<values.length;i++) if(values[i].equals(selectedValue)) selectedIndex=i;
-        TextView choice=txt(title+"  •  "+labels[selectedIndex]+"  ⌄",13,TEXT,true);
+        final int initialIndex=selectedIndex;
+        TextView choice=txt(title+"  •  "+labels[initialIndex]+"  ⌄",13,TEXT,true);
         choice.setGravity(Gravity.CENTER_VERTICAL);
         choice.setPadding(dp(12),0,dp(12),0);
         choice.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
         content.addView(choice,margins(-1,dp(42),0,dp(3),0,dp(4)));
         choice.setOnClickListener(v->new android.app.AlertDialog.Builder(this)
-            .setTitle(title).setSingleChoiceItems(labels,selectedIndex,(dialog,which)->{
+            .setTitle(title).setSingleChoiceItems(labels,initialIndex,(dialog,which)->{
                 prefs.edit().putString(key,values[which]).apply();
                 choice.setText(title+"  •  "+labels[which]+"  ⌄");
                 dialog.dismiss();
