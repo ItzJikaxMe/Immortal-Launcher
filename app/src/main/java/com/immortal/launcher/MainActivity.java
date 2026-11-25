@@ -293,7 +293,7 @@ public class MainActivity extends Activity {
     }
 
     private boolean isVersionInstalled(String id) {
-        java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+id);
+        java.io.File dir=LauncherPaths.versionDirectory(this,id);
         java.io.File profile=new java.io.File(dir,id+".json");
         if(!profile.exists()) return false;
         if(new java.io.File(dir,id+".jar").exists()) return true;
@@ -670,7 +670,7 @@ public class MainActivity extends Activity {
                 }
                 if(!name.toLowerCase(java.util.Locale.ROOT).endsWith(expected))
                     throw new java.io.IOException("Choose a "+expected+" file for this section.");
-                java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+selectedMinecraftVersion+"/"+folder);
+                java.io.File dir=LauncherPaths.sharedFolder(this,folder);
                 if(!dir.exists()) dir.mkdirs();
                 java.io.File target=new java.io.File(dir,name);
                 try(java.io.InputStream in=getContentResolver().openInputStream(uri);

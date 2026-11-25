@@ -39,9 +39,23 @@ public final class LauncherPaths {
     public static void migrateLegacyMinecraftDirectory(Context context) throws IOException {
         File legacy = new File(appDataRoot(context), "minecraft");
         File current = minecraftDirectory(context);
-        if (!legacy.isDirectory() || current.exists()) return;
-        if (!legacy.renameTo(current)) {
-            copyDirectory(legacy, current);
+        if (legacy.isDirectory() && !current.exists()) {
+            if (!legacy.renameTo(current)) copyDirectory(legacy, current);
+        }
+        // Migrate legacy per-version user content into the shared game directory used by the engine.
+        File oldVersions = new File(legacy, "versions");
+        File shared = sharedDirectory(context);
+        File[] profiles = oldVersions.listFiles();
+        if (profiles != null) {
+            String[] gameFolders = {"mods", "resourcepacks", "shaderpacks", "screenshots", "saves"};
+            for (File profile : profiles) {
+                if (!profile.isDirectory()) continue;
+                for (String folder : gameFolders) {
+                    File from = new File(profile, folder);
+                    File to = new File(shared, folder);
+                    if (from.isDirectory() && !to.exists()) copyDirectory(from, to);
+                }
+            }
         }
     }
 
