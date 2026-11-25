@@ -401,7 +401,7 @@ public class MainActivity extends Activity {
         settingsSection("JAVA ARGUMENTS","Advanced virtual machine options");
         settingsText("JVM Arguments","Example: -XX:+UseG1GC","jvm_args");
         settingsSwitch("Java sandbox","java_sandbox",true);
-        addSettingsNote("RAM, JVM flags and runtime selection are stored. They are applied when the Minecraft Java launch engine is connected.");
+        addSettingsNote("RAM and JVM flags are applied at launch. Auto selects a compatible Java runtime; legacy and modern versions can use Java 8, 17, 21 or 25 as required.");
     }
 
     private void showVideoSettings() {
@@ -426,7 +426,7 @@ public class MainActivity extends Activity {
         settingsSection("GRAPHICS DRIVERS","Vulkan / Zink driver configuration");
         settingsAction("Manage graphics drivers","Install or select a compatible driver when the graphics bridge is available.","drivers");
         settingsSwitch("Prefer system Vulkan driver","system_vulkan_driver",false);
-        addSettingsNote("Renderer and driver options are saved as preferences. Actual renderer switching requires the Minecraft graphics runtime; unsupported options may be ignored.");
+        addSettingsNote("Renderer, resolution, VSync and display preferences are passed to the native game engine. Available backends depend on your GPU and Android driver.");
     }
 
     private void showControlSettings() {
@@ -460,7 +460,7 @@ public class MainActivity extends Activity {
         settingsAction("Remap gamepad buttons","Configure controller button mapping.","controls");
         settingsSlider("Controller deadzone","gamepad_deadzone",0,50,1,prefs.getInt("gamepad_deadzone",15)," %");
         settingsSwitch("Keyboard auto-panning","keyboard_autopan",false);
-        addSettingsNote("Control preferences are stored. They affect gameplay after the touch and controller input engine is connected.");
+        addSettingsNote("Touch controls, mouse, keyboard, gyroscope and controller preferences are passed to the in-game input engine when a session starts.");
     }
 
     private void showMiscSettings() {
@@ -480,7 +480,7 @@ public class MainActivity extends Activity {
         settingsAction("Clean partial downloads","Remove incomplete download files.","cache");
         settingsAction("Migrate launcher data","Move launcher data to another storage location.","migration");
         settingsAction("Microphone permission","Request microphone access for future voice features.","mic");
-        addSettingsNote("Verification, download-source and maintenance actions will become active as the corresponding installer and storage services are connected.");
+        addSettingsNote("Verification and download settings are passed to the engine. Cache cleanup and full storage migration tools are still being completed.");
     }
 
     private void showExperimentalSettings() {
@@ -491,7 +491,7 @@ public class MainActivity extends Activity {
         settingsSwitch("OpenSL audio backend","opensl_audio",false);
         settingsSwitch("UBWC graphics workaround","ubwc_workaround",false);
         settingsSwitch("Dump graphics shaders","dump_shaders",false);
-        addSettingsNote("Some options are specific to certain GPU vendors and may have no effect on other devices. These flags are saved but are not yet passed to the game runtime.");
+        addSettingsNote("These GPU and audio flags are passed to the native engine. They only affect hardware and drivers that support them.");
     }
 
     private void showGeneralSettings() {
@@ -565,7 +565,7 @@ public class MainActivity extends Activity {
         content.addView(block,margins(-1,-2,0,dp(2),0,dp(3)));
     }
     private void chooseJavaRuntime(TextView view) {
-        java.io.File root=new java.io.File(getFilesDir(),"runtimes");
+        java.io.File root=new java.io.File(getFilesDir().getParentFile(),"runtimes");
         java.util.ArrayList<String> names=new java.util.ArrayList<>();
         names.add("Auto");
         java.io.File[] dirs=root.listFiles();
@@ -719,7 +719,7 @@ public class MainActivity extends Activity {
         addDiagnostic("Selected Minecraft version",selectedMinecraftVersion);
         addDiagnostic("Selected loader",selectedLoader);
         LinearLayout note=card();
-        note.addView(txt("This page reports Android graphics capabilities. It is not a live Minecraft shader renderer; rendering Minecraft Java on Android still needs a compatible graphics translation layer and native libraries.",12,MUTED,false));
+        note.addView(txt("The engine includes GL4ES, LTW and Vulkan/Zink rendering backends. Actual compatibility and shader support depend on your GPU, Android driver and the selected Minecraft version.",12,MUTED,false));
         content.addView(note,margins(-1,-2,0,dp(10),0,0));
     }
 
@@ -732,13 +732,13 @@ public class MainActivity extends Activity {
 
     private void showLogsPage() {
         content.addView(txt("Launcher Diagnostics",23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(8)));
-        addDiagnostic("App version","0.1.0");
+        addDiagnostic("App version","0.2.0");
         addDiagnostic("Selected instance",selectedMinecraftVersion);
         addDiagnostic("Loader",selectedLoader);
         addDiagnostic("Storage directory",String.valueOf(getExternalFilesDir(null)));
         addDiagnostic("Java runtime",prefs.getString("java_runtime","Not installed / not selected"));
         LinearLayout note=card();
-        note.addView(txt("Installer progress and errors are shown in the status message while downloading. Persistent log capture will be added with the game process/runtime integration.",12,MUTED,false));
+        note.addView(txt("The engine writes its game log to latestlog.txt in the Immortal app data folder. Download and launch errors are shown on screen.",12,MUTED,false));
         content.addView(note,margins(-1,-2,0,dp(8),0,0));
     }
 

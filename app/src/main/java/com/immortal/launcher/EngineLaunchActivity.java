@@ -211,10 +211,16 @@ public final class EngineLaunchActivity extends LauncherActivity {
             }
         }
 
+        SharedPreferences source = getSharedPreferences("immortal_settings", MODE_PRIVATE);
+        String chosenRuntime = source.getString("java_runtime", "Auto");
+        java.io.File runtimeRoot = new java.io.File(getFilesDir().getParentFile(), "runtimes");
+        if ("Auto".equalsIgnoreCase(chosenRuntime) || !new java.io.File(runtimeRoot, chosenRuntime).isDirectory()) {
+            chosenRuntime = null;
+        }
+        final String selectedRuntime = chosenRuntime;
         if (selected == null) {
-            final String renderer = mapRenderer(
-                    getSharedPreferences("immortal_settings", MODE_PRIVATE).getString("renderer", "auto"));
-            final String args = getSharedPreferences("immortal_settings", MODE_PRIVATE).getString("jvm_args", "");
+            final String renderer = mapRenderer(source.getString("renderer", "auto"));
+            final String args = source.getString("jvm_args", "");
             selected = Instances.createInstance(instance -> {
                 instance.name = instanceName;
                 instance.versionId = versionId;
@@ -222,14 +228,15 @@ public final class EngineLaunchActivity extends LauncherActivity {
                 instance.renderer = renderer;
                 instance.jvmArgs = args;
                 instance.argsMode = Instance.ARGS_MODE_REPLACE;
+                instance.selectedRuntime = selectedRuntime;
             }, "Immortal");
         } else {
             selected.versionId = versionId;
             selected.sharedData = true;
-            selected.renderer = mapRenderer(
-                    getSharedPreferences("immortal_settings", MODE_PRIVATE).getString("renderer", "auto"));
-            selected.jvmArgs = getSharedPreferences("immortal_settings", MODE_PRIVATE).getString("jvm_args", "");
+            selected.renderer = mapRenderer(source.getString("renderer", "auto"));
+            selected.jvmArgs = source.getString("jvm_args", "");
             selected.argsMode = Instance.ARGS_MODE_REPLACE;
+            selected.selectedRuntime = selectedRuntime;
             selected.write();
         }
         Instances.setSelectedInstance(selected);

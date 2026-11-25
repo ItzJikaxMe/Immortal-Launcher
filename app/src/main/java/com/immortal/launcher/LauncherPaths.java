@@ -43,11 +43,16 @@ public final class LauncherPaths {
             if (!legacy.renameTo(current)) copyDirectory(legacy, current);
         }
         // Migrate legacy per-version user content into the shared game directory used by the engine.
-        File oldVersions = new File(legacy, "versions");
         File shared = sharedDirectory(context);
-        File[] profiles = oldVersions.listFiles();
-        if (profiles != null) {
-            String[] gameFolders = {"mods", "resourcepacks", "shaderpacks", "screenshots", "saves"};
+        shared.mkdirs();
+        File[] versionRoots = {
+                new File(current, "versions"),
+                new File(legacy, "versions")
+        };
+        String[] gameFolders = {"mods", "resourcepacks", "shaderpacks", "screenshots", "saves"};
+        for (File versionRoot : versionRoots) {
+            File[] profiles = versionRoot.listFiles();
+            if (profiles == null) continue;
             for (File profile : profiles) {
                 if (!profile.isDirectory()) continue;
                 for (String folder : gameFolders) {
