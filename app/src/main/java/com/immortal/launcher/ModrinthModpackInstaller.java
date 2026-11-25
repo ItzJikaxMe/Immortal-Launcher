@@ -81,14 +81,14 @@ public final class ModrinthModpackInstaller {
 
     private void installOverrides(ZipFile zip, String overrideFolder, File root) throws Exception {
         if (overrideFolder == null || overrideFolder.trim().isEmpty()) return;
-        String prefix = overrideFolder.replace('\\\\', '/');
+        String prefix = overrideFolder.replace('\\', '/');
         while (prefix.startsWith("/")) prefix = prefix.substring(1);
         if (!prefix.endsWith("/")) prefix += "/";
         int count = 0;
         java.util.Enumeration<? extends ZipEntry> entries = zip.entries();
         while (entries.hasMoreElements()) {
             ZipEntry entry = entries.nextElement();
-            String name = entry.getName().replace('\\\\', '/');
+            String name = entry.getName().replace('\\', '/');
             if (!name.startsWith(prefix) || entry.isDirectory()) continue;
             String relative = name.substring(prefix.length());
             if (relative.isEmpty()) continue;
@@ -105,7 +105,7 @@ public final class ModrinthModpackInstaller {
         entries = zip.entries();
         while (entries.hasMoreElements()) {
             ZipEntry entry = entries.nextElement();
-            String name = entry.getName().replace('\\\\', '/');
+            String name = entry.getName().replace('\\', '/');
             if (!name.startsWith(clientPrefix) || entry.isDirectory()) continue;
             File target = safeTarget(root, name.substring(clientPrefix.length()));
             ensureDir(target.getParentFile());
@@ -128,7 +128,7 @@ public final class ModrinthModpackInstaller {
             String path = item.optString("path", "");
             if (path.isEmpty()) continue;
             File target = safeTarget(root, path);
-            if (item.optBoolean("fileSizePresent", false) && target.isFile()
+            if (target.isFile()
                     && target.length() == item.optLong("fileSize", -1)) {
                 completed++;
                 continue;
@@ -190,7 +190,7 @@ public final class ModrinthModpackInstaller {
     }
 
     private File safeTarget(File root, String relative) throws IOException {
-        String normalized = relative.replace('\\\\', '/');
+        String normalized = relative.replace('\\', '/');
         if (normalized.startsWith("/") || normalized.matches("^[A-Za-z]:.*"))
             throw new IOException("Unsafe modpack path: " + relative);
         File target = new File(root, normalized);
