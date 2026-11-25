@@ -110,6 +110,10 @@ public final class MicrosoftLoginActivity extends Activity {
             @Override public void onLoginDone(Account account) {
                 try {
                     Accounts.setCurrent(account);
+                    getSharedPreferences("immortal_settings", MODE_PRIVATE).edit()
+                            .putBoolean("microsoft_signed_in", true)
+                            .putString("microsoft_player", account.username)
+                            .apply();
                     runOnUiThread(() -> {
                         status.setText("Signed in as " + account.username + ".");
                         Toast.makeText(MicrosoftLoginActivity.this, "Microsoft account connected.", Toast.LENGTH_LONG).show();
