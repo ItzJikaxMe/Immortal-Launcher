@@ -113,6 +113,9 @@ tasks.register("downloadImmortalJre8", Download) {
     src "https://github.com/MojoLauncher/android-openjdk-build-multiarch/releases/download/rolling/jre8-pojav.zip"
     dest runtimeArchive
     overwrite false
+    doFirst {
+        runtimeArchive.parentFile.mkdirs()
+    }
 }
 
 tasks.register("unpackImmortalJre8", Copy) {
