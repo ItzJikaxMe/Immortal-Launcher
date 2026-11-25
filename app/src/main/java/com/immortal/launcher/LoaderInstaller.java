@@ -20,6 +20,10 @@ public final class LoaderInstaller {
     }
 
     public String install(String gameVersion, String loader) throws Exception {
+        return install(gameVersion,loader,null);
+    }
+
+    public String install(String gameVersion, String loader, String requestedLoaderVersion) throws Exception {
         if (!"Fabric".equals(loader) && !"Quilt".equals(loader))
             throw new IllegalArgumentException(loader+" currently needs its official installer/runtime workflow and is not marked installed.");
         progress("Checking "+loader+" builds for Minecraft "+gameVersion+"…");
@@ -33,10 +37,14 @@ public final class LoaderInstaller {
         for(int i=0;i<builds.length();i++) {
             JSONObject candidate=builds.getJSONObject(i);
             JSONObject loaderInfo=candidate.optJSONObject("loader");
-            if(loaderInfo!=null && !loaderInfo.optBoolean("stable",false)) continue;
-            selected=candidate; break;
+            if(loaderInfo==null) continue;
+            if(requestedLoaderVersion!=null && requestedLoaderVersion.equals(loaderInfo.optString("version"))) {
+                selected=candidate; break;
+            }
+            if(requestedLoaderVersion==null && loaderInfo.optBoolean("stable",false) && selected==null) selected=candidate;
         }
-        if(selected==null) selected=builds.getJSONObject(0);
+        if(selected==null && requestedLoaderVersion==null) selected=builds.getJSONObject(0);
+        if(selected==null) throw new java.io.IOException("Requested "+loader+" build "+requestedLoaderVersion+" is not available for Minecraft "+gameVersion);
         JSONObject loaderInfo=selected.getJSONObject("loader");
         String loaderVersion=loaderInfo.getString("version");
         String profileUrl=base+java.net.URLEncoder.encode(gameVersion,"UTF-8")+"/"
