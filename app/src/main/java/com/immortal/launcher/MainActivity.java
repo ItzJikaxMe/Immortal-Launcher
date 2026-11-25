@@ -377,7 +377,13 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    private void showInstallConfirmation() {\n        new android.app.AlertDialog.Builder(this).setTitle("Install "+selectedMinecraftVersion+" • "+selectedLoader)\n            .setMessage("Install the official game version files now?")\n            .setNegativeButton("Cancel",null).setPositiveButton("Install",(d,w)->downloadBaseVersion()).show();\n    }\n\n    private void chooseLoaderForVersion() {
+    private void showInstallConfirmation() {
+        new android.app.AlertDialog.Builder(this).setTitle("Install "+selectedMinecraftVersion+" • "+selectedLoader)
+            .setMessage("Install the official game version files now?")
+            .setNegativeButton("Cancel",null).setPositiveButton("Install",(d,w)->downloadBaseVersion()).show();
+    }
+
+    private void chooseLoaderForVersion() {
         final String[] loaders={"Vanilla","Fabric","Forge","NeoForge","Quilt"};
         new android.app.AlertDialog.Builder(this)
             .setTitle("Loader for Minecraft "+selectedMinecraftVersion)
