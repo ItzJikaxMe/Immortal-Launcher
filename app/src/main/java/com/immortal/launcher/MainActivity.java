@@ -657,7 +657,7 @@ public class MainActivity extends Activity {
         super.onActivityResult(requestCode,resultCode,data);
         if(resultCode!=RESULT_OK || data==null || data.getData()==null) return;
         String folder=requestCode==101?"mods":requestCode==102?"resourcepacks":requestCode==103?"shaderpacks":requestCode==104?"modpacks":"skins";
-        String expected=requestCode==101?".jar":requestCode==105?".png":".zip";
+        String expected=requestCode==101?".jar":requestCode==105?".png":requestCode==104?".mrpack":".zip";
         android.net.Uri uri=data.getData();
         new Thread(()->{
             try {
@@ -681,6 +681,7 @@ public class MainActivity extends Activity {
                 }
                 final String importedName=name;
                 runOnUiThread(()->{toast("Imported "+importedName);showPage();});
+                if ("modpacks".equals(folder)) installModrinthModpack(target);
             } catch(Exception e) { runOnUiThread(()->toast("Import failed: "+e.getMessage())); }
         }).start();
     }
@@ -775,6 +776,36 @@ public class MainActivity extends Activity {
                 java.io.File file=client.downloadPrimary(version,directory);
                 runOnUiThread(()->{toast("Downloaded "+file.getName());showPage();});
             }catch(Exception e){runOnUiThread(()->toast("Download failed: "+e.getMessage()));}
+        }).start();
+    }
+
+    private void installModrinthModpack(java.io.File archive) {
+        new Thread(() -> {
+            try {
+                ModrinthModpackInstaller installer = new ModrinthModpackInstaller(this,
+                    message -> runOnUiThread(() -> {
+                        if (downloadStatus != null) downloadStatus.setText(message);
+                    }));
+                ModrinthModpackInstaller.Result result = installer.install(archive);
+                runOnUiThread(() -> {
+                    selectedMinecraftVersion = result.installedVersionId;
+                    selectedLoader = result.loader;
+                    prefs.edit()
+                        .putString("selected_version", result.installedVersionId)
+                        .putString("base_game_version", result.gameVersion)
+                        .putString("selected_loader", result.loader)
+                        .putString("selected_loader_build", result.loaderVersion == null ? "" : result.loaderVersion)
+                        .apply();
+                    toast("Installed modpack: " + result.name);
+                    showPage();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    String message = "Modpack install failed: " + error.getMessage();
+                    if (downloadStatus != null) downloadStatus.setText(message);
+                    toast(message);
+                });
+            }
         }).start();
     }
 
