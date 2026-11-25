@@ -132,11 +132,12 @@ cacioDownloads.each { spec ->
     def taskName = "downloadImmortal" + spec.name.replaceAll("[^A-Za-z0-9]", "").capitalize()
     cacioTaskNames.add(taskName)
     tasks.register(taskName, Download) {
-        src "\${cacioBase}/\${spec.component}/\${spec.name}/\${spec.version}/\${spec.name}-\${spec.version}\${spec.suffix}.jar"
-        dest new File(new File(componentRoot, spec.component), "\${spec.name}-\${spec.version}\${spec.suffix}.jar")
+        src "${cacioBase}/${spec.component}/${spec.name}/${spec.version}/${spec.name}-${spec.version}${spec.suffix}.jar"
+        def outputFile = new File(new File(componentRoot, spec.component), "${spec.name}-${spec.version}${spec.suffix}.jar")
+        dest outputFile
         overwrite false
         doFirst {
-            destination.parentFile.mkdirs()
+            outputFile.parentFile.mkdirs()
         }
     }
 }
