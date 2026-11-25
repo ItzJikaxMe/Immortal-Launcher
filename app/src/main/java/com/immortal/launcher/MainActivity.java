@@ -1,248 +1,206 @@
 package com.immortal.launcher;
 
 import android.app.Activity;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class MainActivity extends Activity {
-    private static final int BG = Color.rgb(14, 13, 19);
-    private static final int SURFACE = Color.rgb(28, 26, 35);
-    private static final int SURFACE_2 = Color.rgb(37, 34, 45);
-    private static final int TEXT = Color.rgb(239, 237, 245);
-    private static final int MUTED = Color.rgb(160, 156, 174);
-    private static final int ACCENT = Color.rgb(151, 111, 235);
-    private LinearLayout page;
-    private String selectedTab = "Play";
+    private static final int BG=Color.rgb(12,12,16), PANEL=Color.rgb(27,26,33),
+        PANEL2=Color.rgb(35,33,42), TEXT=Color.rgb(239,237,245),
+        MUTED=Color.rgb(157,154,170), ACCENT=Color.rgb(151,111,235);
+    private LinearLayout content, navColumn;
+    private String selected="Play";
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    @Override public void onCreate(Bundle state) {
+        super.onCreate(state);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
         getWindow().getDecorView().setSystemUiVisibility(0);
-        setContentView(buildScreen());
+        setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        setContentView(build());
     }
 
-    private View buildScreen() {
-        LinearLayout root = new LinearLayout(this);
+    private View build() {
+        LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BG);
-        root.setPadding(dp(16), dp(10), dp(16), dp(8));
+        root.setPadding(dp(14),dp(5),dp(14),dp(8));
+        root.addView(header(),new LinearLayout.LayoutParams(-1,dp(58)));
 
-        root.addView(buildHeader(), new LinearLayout.LayoutParams(-1, dp(62)));
+        LinearLayout body=new LinearLayout(this);
+        body.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,0,1);
+        bp.topMargin=dp(5);
+        root.addView(body,bp);
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(false);
-        LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(-1, 0, 1f);
-        scrollParams.topMargin = dp(8);
-        root.addView(scroll, scrollParams);
+        navColumn=new LinearLayout(this);
+        navColumn.setOrientation(LinearLayout.VERTICAL);
+        navColumn.setPadding(0,dp(6),dp(12),dp(6));
+        body.addView(navColumn,new LinearLayout.LayoutParams(dp(145),-1));
+        addNav("▶","Play"); addNav("▦","Mods"); addNav("▰","Resource Pack");
+        addNav("☼","Shaders"); addNav("▱","Installed"); addNav("☷","Settings"); addNav("♟","Skins");
 
-        page = new LinearLayout(this);
-        page.setOrientation(LinearLayout.VERTICAL);
-        scroll.addView(page);
+        View divider=new View(this);
+        divider.setBackgroundColor(Color.rgb(49,47,57));
+        body.addView(divider,new LinearLayout.LayoutParams(dp(1),-1));
 
-        if ("Play".equals(selectedTab)) {
-            addHomeContent(page);
-        } else {
-            addSectionContent(page, selectedTab);
-        }
-
-        root.addView(buildBottomNav(), new LinearLayout.LayoutParams(-1, dp(66)));
+        ScrollView scroll=new ScrollView(this);
+        scroll.setFillViewport(true);
+        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,-1,1);
+        sp.leftMargin=dp(14);
+        body.addView(scroll,sp);
+        content=new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(2),dp(5),dp(2),dp(4));
+        scroll.addView(content);
+        showPage();
         return root;
     }
 
-    private View buildHeader() {
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-
-        TextView logo = label("I", 35, ACCENT, true);
-        logo.setGravity(Gravity.CENTER);
-        logo.setBackground(round(SURFACE_2, 15, Color.rgb(65, 57, 82)));
-        header.addView(logo, new LinearLayout.LayoutParams(dp(48), dp(48)));
-
-        LinearLayout brand = new LinearLayout(this);
+    private View header() {
+        LinearLayout h=new LinearLayout(this);
+        h.setGravity(Gravity.CENTER_VERTICAL);
+        LogoView logo=new LogoView();
+        h.addView(logo,new LinearLayout.LayoutParams(dp(44),dp(44)));
+        LinearLayout brand=new LinearLayout(this);
         brand.setOrientation(LinearLayout.VERTICAL);
-        brand.setPadding(dp(10), 0, 0, 0);
-        TextView name = label("IMMORTAL", 19, TEXT, true);
-        TextView version = label("0.1.0", 12, MUTED, false);
-        brand.addView(name);
-        brand.addView(version);
-        header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1f));
-
-        TextView settings = label("⚙", 23, MUTED, true);
+        brand.setPadding(dp(8),0,0,0);
+        brand.addView(txt("Immortal",19,TEXT,true));
+        brand.addView(txt("0.1.0",11,MUTED,false));
+        h.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
+        TextView settings=txt("☷",21,MUTED,true);
         settings.setGravity(Gravity.CENTER);
-        settings.setBackground(round(SURFACE, 50, Color.rgb(51, 47, 61)));
-        header.addView(settings, new LinearLayout.LayoutParams(dp(44), dp(44)));
-        settings.setOnClickListener(v -> openTab("Settings"));
-        return header;
+        settings.setBackground(shape(PANEL2,50,Color.rgb(51,48,60)));
+        h.addView(settings,new LinearLayout.LayoutParams(dp(44),dp(44)));
+        settings.setOnClickListener(v->open("Settings"));
+        TextView account=txt("  Player  ⌄  ",14,TEXT,true);
+        account.setGravity(Gravity.CENTER);
+        account.setBackground(shape(PANEL,30,Color.rgb(48,45,56)));
+        LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-2,dp(42));
+        ap.leftMargin=dp(10);
+        h.addView(account,ap);
+        account.setOnClickListener(v->toast("Account selection will be added."));
+        return h;
     }
 
-    private void addHomeContent(LinearLayout host) {
-        LinearLayout account = card();
-        account.setOrientation(LinearLayout.HORIZONTAL);
-        account.setGravity(Gravity.CENTER_VERTICAL);
-        TextView avatar = label("✦", 22, ACCENT, true);
-        avatar.setGravity(Gravity.CENTER);
-        avatar.setBackground(round(SURFACE_2, 50, Color.TRANSPARENT));
-        account.addView(avatar, new LinearLayout.LayoutParams(dp(44), dp(44)));
-        LinearLayout accountText = new LinearLayout(this);
-        accountText.setOrientation(LinearLayout.VERTICAL);
-        accountText.setPadding(dp(12), 0, 0, 0);
-        accountText.addView(label("Player", 16, TEXT, true));
-        accountText.addView(label("Offline account", 12, MUTED, false));
-        account.addView(accountText, new LinearLayout.LayoutParams(0, -2, 1f));
-        account.addView(label("⌄", 22, MUTED, true));
-        host.addView(account, params(-1, dp(72), 0, 0, 0, 12));
-
-        LinearLayout hero = new LinearLayout(this);
-        hero.setOrientation(LinearLayout.VERTICAL);
-        hero.setGravity(Gravity.BOTTOM);
-        hero.setPadding(dp(20), dp(20), dp(20), dp(20));
-        GradientDrawable heroBg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.rgb(49, 45, 60), Color.rgb(24, 22, 30), Color.rgb(16, 15, 21)});
-        heroBg.setCornerRadius(dp(22));
-        heroBg.setStroke(dp(1), Color.rgb(58, 54, 68));
-        hero.setBackground(heroBg);
-        TextView ready = label("Ready to play", 25, TEXT, true);
-        hero.addView(ready);
-        TextView subtitle = label("Minecraft Java  •  Choose your version", 13, MUTED, false);
-        LinearLayout.LayoutParams subParams = params(-1, -2, 0, 8, 0, 0);
-        hero.addView(subtitle, subParams);
-        host.addView(hero, params(-1, dp(176), 0, 0, 0, 14));
-
-        TextView play = label("▶    PLAY MINECRAFT", 17, Color.WHITE, true);
-        play.setGravity(Gravity.CENTER);
-        play.setBackground(round(ACCENT, 18, Color.TRANSPARENT));
-        host.addView(play, params(-1, dp(58), 0, 0, 0, 12));
-        play.setOnClickListener(v -> showMessage("Game launch will be connected next."));
-
-        LinearLayout version = card();
-        version.setOrientation(LinearLayout.HORIZONTAL);
-        version.setGravity(Gravity.CENTER_VERTICAL);
-        version.addView(label("Minecraft version", 14, MUTED, false),
-                new LinearLayout.LayoutParams(0, -2, 1f));
-        version.addView(label("Select version  ⌄", 14, TEXT, true));
-        host.addView(version, params(-1, dp(56), 0, 0, 0, 18));
-
-        TextView section = label("LIBRARY", 12, MUTED, true);
-        host.addView(section, params(-1, -2, dp(3), 0, 0, 9));
-        String[][] items = {
-                {"▦", "Mods"}, {"▰", "Resource Packs"},
-                {"☼", "Shaders"}, {"⬡", "Modpacks"},
-                {"♟", "Skins"}, {"▤", "Game Files"}
-        };
-        for (int i = 0; i < items.length; i += 2) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.addView(categoryCard(items[i][0], items[i][1]), new LinearLayout.LayoutParams(0, dp(88), 1f));
-            LinearLayout.LayoutParams second = new LinearLayout.LayoutParams(0, dp(88), 1f);
-            second.leftMargin = dp(10);
-            row.addView(categoryCard(items[i + 1][0], items[i + 1][1]), second);
-            host.addView(row, params(-1, dp(88), 0, 0, 0, 10));
-        }
-        LinearLayout memory = card();
-        memory.setOrientation(LinearLayout.HORIZONTAL);
-        memory.setGravity(Gravity.CENTER_VERTICAL);
-        memory.addView(label("▥   Memory", 14, MUTED, true),
-                new LinearLayout.LayoutParams(0, -2, 1f));
-        memory.addView(label("2.0 GB / 6.0 GB", 14, TEXT, true));
-        host.addView(memory, params(-1, dp(54), 0, 8, 0, 12));
-    }
-
-    private View categoryCard(String icon, String title) {
-        LinearLayout item = card();
-        item.setOrientation(LinearLayout.HORIZONTAL);
+    private void addNav(String icon,String name) {
+        LinearLayout item=new LinearLayout(this);
         item.setGravity(Gravity.CENTER_VERTICAL);
-        TextView symbol = label(icon, 23, ACCENT, true);
-        symbol.setGravity(Gravity.CENTER);
-        item.addView(symbol, new LinearLayout.LayoutParams(dp(38), dp(42)));
-        TextView name = label(title, 14, TEXT, true);
-        name.setPadding(dp(8), 0, 0, 0);
-        item.addView(name);
-        item.setOnClickListener(v -> openTab(title));
-        return item;
+        item.setPadding(dp(10),0,dp(7),0);
+        item.setBackground(shape(name.equals(selected)?PANEL2:BG,18,
+            name.equals(selected)?Color.rgb(55,51,65):Color.TRANSPARENT));
+        TextView symbol=txt(icon,17,name.equals(selected)?TEXT:MUTED,true);
+        item.addView(symbol,new LinearLayout.LayoutParams(dp(24),-2));
+        TextView label=txt(name,13,name.equals(selected)?TEXT:MUTED,true);
+        label.setPadding(dp(5),0,0,0);
+        item.addView(label);
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(42));
+        p.bottomMargin=dp(6);
+        navColumn.addView(item,p);
+        item.setOnClickListener(v->open(name));
     }
 
-    private void addSectionContent(LinearLayout host, String tab) {
-        host.addView(label(tab, 27, TEXT, true), params(-1, -2, dp(12), dp(14), 0, 6));
-        host.addView(label("Manage your Minecraft Java " + tab.toLowerCase() + ".", 14, MUTED, false),
-                params(-1, -2, 0, 0, 0, 18));
-        LinearLayout empty = card();
-        empty.setGravity(Gravity.CENTER);
-        empty.addView(label("Your " + tab + " will appear here", 15, MUTED, false));
-        host.addView(empty, params(-1, dp(150), 0, 0, 0, 12));
-    }
-
-    private View buildBottomNav() {
-        LinearLayout nav = new LinearLayout(this);
-        nav.setOrientation(LinearLayout.HORIZONTAL);
-        nav.setGravity(Gravity.CENTER);
-        nav.setBackground(round(SURFACE, 20, Color.rgb(49, 45, 59)));
-        String[][] tabs = {{"▶", "Play"}, {"▦", "Mods"}, {"▰", "Packs"}, {"☼", "Shaders"}, {"⚙", "Settings"}};
-        for (String[] tab : tabs) {
-            LinearLayout item = new LinearLayout(this);
-            item.setOrientation(LinearLayout.VERTICAL);
-            item.setGravity(Gravity.CENTER);
-            TextView icon = label(tab[0], 19, tab[1].equals(selectedTab) ? ACCENT : MUTED, true);
-            TextView name = label(tab[1], 10, tab[1].equals(selectedTab) ? TEXT : MUTED, true);
-            item.addView(icon);
-            item.addView(name);
-            nav.addView(item, new LinearLayout.LayoutParams(0, -1, 1f));
-            item.setOnClickListener(v -> openTab(tab[1]));
+    private void showPage() {
+        content.removeAllViews();
+        if(!"Play".equals(selected)) {
+            content.addView(txt(selected,24,TEXT,true),margins(-1,-2,dp(10),dp(12),0,dp(10)));
+            LinearLayout panel=card();
+            panel.setGravity(Gravity.CENTER);
+            panel.addView(txt("Your "+selected+" will appear here.",14,MUTED,false));
+            content.addView(panel,new LinearLayout.LayoutParams(-1,dp(170)));
+            return;
         }
-        return nav;
+        LinearLayout hero=new LinearLayout(this);
+        hero.setOrientation(LinearLayout.VERTICAL);
+        hero.setGravity(Gravity.CENTER_VERTICAL);
+        hero.setPadding(dp(22),dp(15),dp(22),dp(15));
+        GradientDrawable banner=new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+            new int[]{Color.rgb(43,41,51),Color.rgb(24,23,30),Color.rgb(16,16,21)});
+        banner.setCornerRadius(dp(22));
+        banner.setStroke(dp(1),Color.rgb(53,51,62));
+        hero.setBackground(banner);
+        hero.addView(txt("Ready to play",27,TEXT,true));
+        hero.addView(txt("Minecraft Java  •  Vanilla / compatibility",14,MUTED,false),
+            margins(-1,-2,0,dp(5),0,0));
+        content.addView(hero,new LinearLayout.LayoutParams(-1,0.0f==0?dp(174):dp(174)));
+
+        LinearLayout actions=new LinearLayout(this);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        TextView play=txt("▶    Play Minecraft",16,BG,true);
+        play.setGravity(Gravity.CENTER);
+        play.setBackground(shape(Color.rgb(190,187,199),24,Color.TRANSPARENT));
+        actions.addView(play,new LinearLayout.LayoutParams(0,dp(52),1));
+        TextView version=txt("  Vanilla   ⌄  ",15,TEXT,true);
+        version.setGravity(Gravity.CENTER);
+        version.setBackground(shape(PANEL2,24,Color.rgb(50,47,59)));
+        LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(dp(155),dp(52));
+        vp.leftMargin=dp(10);
+        actions.addView(version,vp);
+        LinearLayout.LayoutParams actp=new LinearLayout.LayoutParams(-1,-2);
+        actp.topMargin=dp(12);
+        content.addView(actions,actp);
+        play.setOnClickListener(v->toast("Game launching will be connected after the runtime setup."));
+        version.setOnClickListener(v->toast("Minecraft version selector will be added."));
+
+        TextView status=txt("Searching... You can switch tabs while results load.",13,MUTED,false);
+        content.addView(status,margins(-1,-2,0,dp(12),0,0));
     }
 
-    private void openTab(String tab) {
-        if ("Packs".equals(tab)) tab = "Resource Packs";
-        selectedTab = tab;
-        setContentView(buildScreen());
+    private void open(String name) {
+        selected=name;
+        setContentView(build());
     }
-
     private LinearLayout card() {
-        LinearLayout box = new LinearLayout(this);
-        box.setPadding(dp(14), dp(10), dp(14), dp(10));
-        box.setBackground(round(SURFACE, 18, Color.rgb(51, 47, 61)));
-        return box;
+        LinearLayout c=new LinearLayout(this);
+        c.setPadding(dp(16),dp(12),dp(16),dp(12));
+        c.setBackground(shape(PANEL,18,Color.rgb(49,47,58)));
+        return c;
     }
-
-    private TextView label(String value, int size, int color, boolean bold) {
-        TextView view = new TextView(this);
-        view.setText(value);
-        view.setTextSize(size);
-        view.setTextColor(color);
-        if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        return view;
+    private TextView txt(String s,int size,int color,boolean bold) {
+        TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(color);
+        if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        return t;
     }
-
-    private GradientDrawable round(int color, int radius, int stroke) {
-        GradientDrawable shape = new GradientDrawable();
-        shape.setColor(color);
-        shape.setCornerRadius(dp(radius));
-        if (stroke != Color.TRANSPARENT) shape.setStroke(dp(1), stroke);
-        return shape;
+    private GradientDrawable shape(int color,int radius,int stroke) {
+        GradientDrawable d=new GradientDrawable(); d.setColor(color); d.setCornerRadius(dp(radius));
+        if(stroke!=Color.TRANSPARENT)d.setStroke(dp(1),stroke); return d;
     }
-
-    private LinearLayout.LayoutParams params(int width, int height, int left, int top, int right, int bottom) {
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(width, height);
-        p.setMargins(dp(left), dp(top), dp(right), dp(bottom));
-        return p;
+    private LinearLayout.LayoutParams margins(int w,int h,int l,int t,int r,int b) {
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(w,h);
+        p.setMargins(l,t,r,b); return p;
     }
+    private int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
+    private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
 
-    private void showMessage(String message) {
-        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show();
-    }
-
-    private int dp(int value) {
-        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+    private class LogoView extends View {
+        private final Paint p=new Paint(3);
+        LogoView(){super(MainActivity.this);}
+        @Override protected void onDraw(Canvas c){
+            super.onDraw(c);
+            float w=getWidth(),h=getHeight();
+            p.setStyle(Paint.Style.FILL);
+            p.setShader(new android.graphics.LinearGradient(0,0,w,h,
+                new int[]{Color.rgb(205,202,218),Color.rgb(83,79,99),Color.rgb(174,169,190)},
+                null,android.graphics.Shader.TileMode.CLAMP));
+            Path i=new Path();
+            i.moveTo(w*.22f,h*.12f);i.lineTo(w*.72f,h*.12f);i.lineTo(w*.62f,h*.28f);
+            i.lineTo(w*.56f,h*.28f);i.lineTo(w*.56f,h*.72f);i.lineTo(w*.72f,h*.86f);
+            i.lineTo(w*.22f,h*.86f);i.lineTo(w*.38f,h*.72f);i.lineTo(w*.38f,h*.28f);
+            i.close(); c.drawPath(i,p); p.setShader(null);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(3));
+            p.setColor(ACCENT); c.drawOval(w*.08f,h*.31f,w*.91f,h*.69f,p);
+            p.setStyle(Paint.Style.FILL);
+        }
     }
 }
