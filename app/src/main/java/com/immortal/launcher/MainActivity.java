@@ -187,8 +187,7 @@ public class MainActivity extends Activity {
 
         downloadStatus=txt("Choose an installed version or add a new one.",12,MUTED,false);
         content.addView(downloadStatus,margins(-1,-2,0,dp(10),0,0));
-    }
-    private void showAddVersionPage() {
+    }    private void showAddVersionPage() {
         content.addView(txt("Add Version",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(8)));
         content.addView(txt("Choose an edition to install",13,MUTED,false),margins(-1,-2,dp(5),0,0,dp(10)));
         addVersionAction("CREATE VANILLA INSTANCE","Vanilla");
@@ -268,7 +267,7 @@ public class MainActivity extends Activity {
                 java.io.File jar=new java.io.File(f,f.getName()+".jar");
                 java.io.File profile=new java.io.File(f,f.getName()+".json");
                 boolean inherited=false;
-                try { inherited=new String(java.nio.file.Files.readAllBytes(profile.toPath()),"UTF-8").contains("\\"inheritsFrom\\""); }
+                try { inherited=new String(java.nio.file.Files.readAllBytes(profile.toPath()),"UTF-8").contains("inheritsFrom"); }
                 catch(Exception ignored) {}
                 if(jar.exists() || inherited) out.add(f.getName());
             }
@@ -280,7 +279,7 @@ public class MainActivity extends Activity {
         java.io.File profile=new java.io.File(dir,id+".json");
         if(!profile.exists()) return false;
         if(new java.io.File(dir,id+".jar").exists()) return true;
-        try { return new String(java.nio.file.Files.readAllBytes(profile.toPath()),"UTF-8").contains("\\"inheritsFrom\\""); }
+        try { return new String(java.nio.file.Files.readAllBytes(profile.toPath()),"UTF-8").contains("inheritsFrom"); }
         catch(Exception e) { return false; }
     }
 
@@ -377,8 +376,7 @@ public class MainActivity extends Activity {
             searchButton.setBackground(shape(PANEL2,12,Color.rgb(65,61,75)));
             content.addView(searchButton,margins(dp(130),dp(34),0,0,0,dp(8)));
             searchButton.setOnClickListener(v->searchModrinth(folder,searchBox.getText().toString().trim()));
-        }
-        TextView importButton=txt("+ Import "+(folder.equals("skins")?"PNG skin":"file"),13,BG,true);
+        }        TextView importButton=txt("+ Import "+(folder.equals("skins")?"PNG skin":"file"),13,BG,true);
         importButton.setGravity(Gravity.CENTER);
         importButton.setBackground(shape(Color.rgb(190,187,199),16,Color.TRANSPARENT));
         content.addView(importButton,margins(dp(155),dp(38),0,0,0,dp(10)));
@@ -567,7 +565,6 @@ public class MainActivity extends Activity {
             }
         }).start();
     }
-
     private void showInstallConfirmation() {
         new android.app.AlertDialog.Builder(this).setTitle("Install "+selectedMinecraftVersion+" • "+selectedLoader)
             .setMessage("Install the official game version files now?")
