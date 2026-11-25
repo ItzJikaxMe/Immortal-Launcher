@@ -83,7 +83,10 @@ public class MainActivity extends Activity {
         ImageView logo=new ImageView(this);
         logo.setImageResource(R.drawable.immortal_logo);
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        h.addView(logo,new LinearLayout.LayoutParams(dp(60),dp(60)));
+        logo.setAdjustViewBounds(true);
+        logo.setPadding(dp(3),dp(3),dp(3),dp(3));
+        logo.setBackground(shape(PANEL2,12,Color.rgb(57,53,68)));
+        h.addView(logo,new LinearLayout.LayoutParams(dp(58),dp(58)));
 
         TextView brand=txt("IMMORTAL",20,TEXT,true);
         LinearLayout.LayoutParams brandp=new LinearLayout.LayoutParams(0,-2,1);
