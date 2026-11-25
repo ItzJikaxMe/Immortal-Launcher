@@ -1,16 +1,14 @@
 package com.immortal.launcher;
 
 import android.app.Activity;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.ImageView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -77,26 +75,42 @@ public class MainActivity extends Activity {
         LinearLayout h=new LinearLayout(this);
         h.setGravity(Gravity.CENTER_VERTICAL);
         h.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        LogoView logo=new LogoView();
-        h.addView(logo,new LinearLayout.LayoutParams(dp(44),dp(44)));
-        LinearLayout brand=new LinearLayout(this);
-        brand.setOrientation(LinearLayout.VERTICAL);
-        brand.setPadding(dp(8),0,0,0);
-        brand.addView(txt("Immortal",19,TEXT,true));
-        brand.addView(txt("0.1.0",11,MUTED,false));
-        h.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
+
+        ImageView logo=new ImageView(this);
+        logo.setImageResource(R.drawable.immortal_logo);
+        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        h.addView(logo,new LinearLayout.LayoutParams(dp(48),dp(48)));
+
+        TextView brand=txt("IMMORTAL",20,TEXT,true);
+        LinearLayout.LayoutParams brandp=new LinearLayout.LayoutParams(0,-2,1);
+        brandp.leftMargin=dp(10);
+        h.addView(brand,brandp);
+
+        LinearLayout right=new LinearLayout(this);
+        right.setGravity(Gravity.CENTER_VERTICAL);
+        right.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+
+        TextView version=txt("0.1.0",12,MUTED,true);
+        LinearLayout.LayoutParams verp=new LinearLayout.LayoutParams(-2,-2);
+        verp.rightMargin=dp(12);
+        right.addView(version,verp);
+
+        TextView account=txt("Player  ⌄",14,TEXT,true);
+        account.setGravity(Gravity.CENTER);
+        account.setPadding(dp(14),0,dp(14),0);
+        account.setBackground(shape(PANEL,30,Color.rgb(48,45,56)));
+        right.addView(account,new LinearLayout.LayoutParams(-2,dp(42)));
+        account.setOnClickListener(v->toast("Account selection will be added."));
+
         TextView settings=txt("☷",21,MUTED,true);
         settings.setGravity(Gravity.CENTER);
         settings.setBackground(shape(PANEL2,50,Color.rgb(51,48,60)));
-        h.addView(settings,new LinearLayout.LayoutParams(dp(44),dp(44)));
+        LinearLayout.LayoutParams setp=new LinearLayout.LayoutParams(dp(44),dp(44));
+        setp.leftMargin=dp(8);
+        right.addView(settings,setp);
         settings.setOnClickListener(v->open("Settings"));
-        TextView account=txt("  Player  ⌄  ",14,TEXT,true);
-        account.setGravity(Gravity.CENTER);
-        account.setBackground(shape(PANEL,30,Color.rgb(48,45,56)));
-        LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(-2,dp(42));
-        ap.leftMargin=dp(10);
-        h.addView(account,ap);
-        account.setOnClickListener(v->toast("Account selection will be added."));
+
+        h.addView(right,new LinearLayout.LayoutParams(-2,-1));
         return h;
     }
 
