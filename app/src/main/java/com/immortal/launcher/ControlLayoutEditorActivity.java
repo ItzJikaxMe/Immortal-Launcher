@@ -125,7 +125,8 @@ public class ControlLayoutEditorActivity extends Activity {
                 o.put("x",c.x);o.put("y",c.y);o.put("w",c.w);o.put("h",c.h);array.put(o);
             }
             getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString(KEY,array.toString()).apply();
-            Toast.makeText(this,"Immortal control layout saved",Toast.LENGTH_SHORT).show();
+            ControlLayoutBridge.sync(this);
+            Toast.makeText(this,"Immortal controls saved and applied to Minecraft",Toast.LENGTH_SHORT).show();
         } catch(Exception e) { Toast.makeText(this,"Could not save layout",Toast.LENGTH_SHORT).show(); }
     }
 
