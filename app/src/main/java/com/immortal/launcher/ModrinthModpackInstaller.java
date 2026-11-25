@@ -33,17 +33,16 @@ public final class ModrinthModpackInstaller {
         this.listener = listener;
     }
 
-    public Result install(File archive) throws Exception {
+    public PackInfo inspect(File archive) throws Exception {
         if (archive == null || !archive.isFile()) throw new IOException("Modpack archive was not found.");
-        JSONObject manifest;
         try (ZipFile zip = new ZipFile(archive)) {
             ZipEntry entry = zip.getEntry("modrinth.index.json");
             if (entry == null) throw new IOException("This is not a valid Modrinth .mrpack archive.");
+            JSONObject manifest;
             try (InputStream in = zip.getInputStream(entry)) {
                 manifest = new JSONObject(readText(in));
             }
             if (manifest.optInt("formatVersion", 0) < 1) throw new IOException("Unsupported Modrinth pack format.");
-
             JSONObject dependencies = manifest.optJSONObject("dependencies");
             if (dependencies == null) throw new IOException("The modpack manifest has no dependencies.");
             String game = dependencies.optString("minecraft", "");
@@ -57,25 +56,64 @@ public final class ModrinthModpackInstaller {
             } else if (dependencies.has("quilt")) {
                 loader = "Quilt";
                 loaderVersion = dependencies.optString("quilt", "");
-            } else if (dependencies.has("forge") || dependencies.has("neoforge")) {
-                throw new IOException("This modpack requires Forge/NeoForge. Its installer adapter is not enabled yet; no partial pack was installed.");
+            } else if (dependencies.has("forge")) {
+                loader = "Forge";
+                loaderVersion = dependencies.optString("forge", "");
+            } else if (dependencies.has("neoforge")) {
+                loader = "NeoForge";
+                loaderVersion = dependencies.optString("neoforge", "");
             }
+            return new PackInfo(game, loader, loaderVersion,
+                    manifest.optString("name", archive.getName()));
+        }
+    }
 
-            progress("Installing Minecraft " + game + " for modpack…");
-            new MinecraftInstaller(context, this::progress).install(game);
-            String installedId = game;
-            if (!"Vanilla".equals(loader)) {
-                progress("Installing " + loader + " " + loaderVersion + "…");
-                installedId = new LoaderInstaller(context, this::progress).install(game, loader,
-                        loaderVersion.isEmpty() ? null : loaderVersion);
+    public Result install(File archive) throws Exception {
+        PackInfo info = inspect(archive);
+        if ("Forge".equals(info.loader) || "NeoForge".equals(info.loader)) {
+            throw new IOException("This pack needs the official " + info.loader
+                    + " installer. Start its loader installation first, then import this pack again.");
+        }
+        progress("Installing Minecraft " + info.gameVersion + " for modpack…");
+        new MinecraftInstaller(context, this::progress).install(info.gameVersion);
+        String installedId = info.gameVersion;
+        if (!"Vanilla".equals(info.loader)) {
+            progress("Installing " + info.loader + " " + info.loaderVersion + "…");
+            installedId = new LoaderInstaller(context, this::progress).install(info.gameVersion, info.loader,
+                    info.loaderVersion == null || info.loaderVersion.isEmpty() ? null : info.loaderVersion);
+        }
+        return installPackFiles(archive, info, installedId);
+    }
+
+    public Result installPackFiles(File archive, PackInfo info, String installedVersionId) throws Exception {
+        if (info == null || installedVersionId == null || installedVersionId.isEmpty())
+            throw new IOException("The installed game profile is missing.");
+        try (ZipFile zip = new ZipFile(archive)) {
+            ZipEntry entry = zip.getEntry("modrinth.index.json");
+            if (entry == null) throw new IOException("This is not a valid Modrinth .mrpack archive.");
+            JSONObject manifest;
+            try (InputStream in = zip.getInputStream(entry)) {
+                manifest = new JSONObject(readText(in));
             }
-
             File shared = LauncherPaths.sharedDirectory(context);
             if (!shared.exists() && !shared.mkdirs()) throw new IOException("Cannot create shared game directory.");
             installOverrides(zip, manifest.optString("overrides", "overrides"), shared);
             installClientFiles(manifest.optJSONArray("files"), shared);
-            progress("Modpack installed: " + manifest.optString("name", archive.getName()));
-            return new Result(game, installedId, loader, loaderVersion, manifest.optString("name", archive.getName()));
+            progress("Modpack installed: " + info.name);
+            return new Result(info.gameVersion, installedVersionId, info.loader, info.loaderVersion, info.name);
+        }
+    }
+
+    public static final class PackInfo {
+        public final String gameVersion;
+        public final String loader;
+        public final String loaderVersion;
+        public final String name;
+        PackInfo(String gameVersion, String loader, String loaderVersion, String name) {
+            this.gameVersion = gameVersion;
+            this.loader = loader;
+            this.loaderVersion = loaderVersion;
+            this.name = name;
         }
     }
 
