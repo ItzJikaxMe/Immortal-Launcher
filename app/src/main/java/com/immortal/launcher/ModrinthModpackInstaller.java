@@ -161,14 +161,20 @@ public final class ModrinthModpackInstaller {
         }
     }
 
-    private void verify(File file, JSONObject hashes) throws Exception {
+    private void verify(File file, JSONObject hashes) throws IOException {
         if (hashes == null) return;
-        String sha1 = hashes.optString("sha1", "");
-        String sha512 = hashes.optString("sha512", "");
-        if (!sha1.isEmpty() && !sha1.equalsIgnoreCase(digest(file, "SHA-1")))
-            throw new IOException("SHA-1 mismatch: " + file.getName());
-        if (!sha512.isEmpty() && !sha512.equalsIgnoreCase(digest(file, "SHA-512")))
-            throw new IOException("SHA-512 mismatch: " + file.getName());
+        try {
+            String sha1 = hashes.optString("sha1", "");
+            String sha512 = hashes.optString("sha512", "");
+            if (!sha1.isEmpty() && !sha1.equalsIgnoreCase(digest(file, "SHA-1")))
+                throw new IOException("SHA-1 mismatch: " + file.getName());
+            if (!sha512.isEmpty() && !sha512.equalsIgnoreCase(digest(file, "SHA-512")))
+                throw new IOException("SHA-512 mismatch: " + file.getName());
+        } catch (IOException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new IOException("Could not verify " + file.getName(), error);
+        }
     }
 
     private void download(String address, File target) throws IOException {
