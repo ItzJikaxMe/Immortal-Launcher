@@ -352,7 +352,7 @@ public class MainActivity extends Activity {
                     org.json.JSONObject item=all.getJSONObject(i);
                     String id=item.getString("id");
                     String type=item.optString("type","");
-                    if(type.equals("release") || type.equals("old_beta") || type.equals("old_alpha")) {
+                    if(type.equals("release") || type.equals("snapshot") || type.equals("old_beta") || type.equals("old_alpha")) {
                         ids.add(id);
                         labels.add(id+(type.equals("release")?"  •  Release":type.equals("old_beta")?"  •  Old Beta":"  •  Old Alpha"));
                     }
@@ -429,33 +429,31 @@ public class MainActivity extends Activity {
     }
 
     private void downloadBaseVersion() {
-        if(!"Vanilla".equals(selectedLoader)) {
-            toast(selectedLoader+" instance installer is not implemented yet. The version picker is ready, but this loader will not be marked installed.");
-            if(downloadStatus!=null) downloadStatus.setText(selectedLoader+" installer integration is still required; no false installed profile was created.");
+        final String game=selectedMinecraftVersion;
+        final String loader=selectedLoader;
+        if(downloadStatus!=null) downloadStatus.setText("Preparing "+game+" • "+loader+"…");
+        if(!"Vanilla".equals(loader)) {
+            toast(loader+" installation is not connected yet. Choose Vanilla for the verified game-file installer.");
+            if(downloadStatus!=null) downloadStatus.setText(loader+" installer is a separate integration step; this profile has not been marked installed.");
             return;
         }
-        final String game=selectedMinecraftVersion;
-        if(downloadStatus!=null) downloadStatus.setText("Preparing Minecraft "+game+" files...");
-        new Thread(()->{
+        new Thread(() -> {
             try {
-                String manifest=httpGet("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json");
-                org.json.JSONArray all=new org.json.JSONObject(manifest).getJSONArray("versions");
-                String metadataUrl=null;
-                for(int i=0;i<all.length();i++) {
-                    org.json.JSONObject item=all.getJSONObject(i);
-                    if(item.getString("id").equals(game)){metadataUrl=item.getString("url");break;}
-                }
-                if(metadataUrl==null) throw new Exception("Version not found");
-                java.io.File base=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+game);
-                if(!base.exists() && !base.mkdirs()) throw new Exception("Cannot create folder");
-                String metadata=httpGet(metadataUrl);
-                writeText(new java.io.File(base,game+".json"),metadata);
-                org.json.JSONObject versionJson=new org.json.JSONObject(metadata);
-                org.json.JSONObject client=versionJson.getJSONObject("downloads").getJSONObject("client");
-                downloadFile(client.getString("url"),new java.io.File(base,game+".jar"));
-                runOnUiThread(()->{if(downloadStatus!=null) downloadStatus.setText("Downloaded "+game+" metadata and client JAR. Libraries, assets, runtime and "+selectedLoader+" profile are still required before launch."); toast("Base files downloaded for "+game);});
+                MinecraftInstaller installer=new MinecraftInstaller(this,
+                    message -> runOnUiThread(() -> {
+                        if(downloadStatus!=null) downloadStatus.setText(message);
+                    }));
+                installer.install(game);
+                runOnUiThread(() -> {
+                    if(downloadStatus!=null) downloadStatus.setText("Minecraft "+game+" base files installed. A compatible Android Java runtime and graphics bridge are still required to launch.");
+                    toast("Minecraft "+game+" files installed");
+                });
             } catch(Exception e) {
-                runOnUiThread(()->{if(downloadStatus!=null) downloadStatus.setText("Download failed: "+e.getMessage()); toast("Download failed: "+e.getMessage());});
+                runOnUiThread(() -> {
+                    String message="Install failed: "+e.getMessage();
+                    if(downloadStatus!=null) downloadStatus.setText(message);
+                    toast(message);
+                });
             }
         }).start();
     }
