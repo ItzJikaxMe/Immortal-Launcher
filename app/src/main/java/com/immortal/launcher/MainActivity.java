@@ -9,6 +9,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.widget.FrameLayout;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.ImageView;
@@ -144,19 +145,19 @@ public class MainActivity extends Activity {
             content.addView(panel,new LinearLayout.LayoutParams(-1,dp(170)));
             return;
         }
-        LinearLayout hero=new LinearLayout(this);
-        hero.setOrientation(LinearLayout.VERTICAL);
-        hero.setGravity(Gravity.CENTER_VERTICAL);
-        hero.setPadding(dp(22),dp(15),dp(22),dp(15));
-        GradientDrawable banner=new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            new int[]{Color.rgb(43,41,51),Color.rgb(24,23,30),Color.rgb(16,16,21)});
-        banner.setCornerRadius(dp(22));
-        banner.setStroke(dp(1),Color.rgb(53,51,62));
-        hero.setBackground(banner);
-        hero.addView(txt("Ready to play",27,TEXT,true));
-        hero.addView(txt("Minecraft Java  •  Vanilla / compatibility",14,MUTED,false),
+        FrameLayout hero=new FrameLayout(this);
+        hero.setBackground(shape(Color.rgb(20,19,27),22,Color.rgb(53,51,62)));
+        EndermanArt art=new EndermanArt();
+        hero.addView(art,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout heroText=new LinearLayout(this);
+        heroText.setOrientation(LinearLayout.VERTICAL);
+        heroText.setGravity(Gravity.CENTER_VERTICAL);
+        heroText.setPadding(dp(22),dp(15),dp(22),dp(15));
+        heroText.addView(txt("Ready to play",27,TEXT,true));
+        heroText.addView(txt("Minecraft Java  •  Vanilla / compatibility",14,MUTED,false),
             margins(-1,-2,0,dp(5),0,0));
-        content.addView(hero,new LinearLayout.LayoutParams(-1,0.0f==0?dp(174):dp(174)));
+        hero.addView(heroText,new FrameLayout.LayoutParams(-1,-1));
+        content.addView(hero,new LinearLayout.LayoutParams(-1,dp(174)));
 
         LinearLayout actions=new LinearLayout(this);
         actions.setGravity(Gravity.CENTER_VERTICAL);
@@ -207,6 +208,58 @@ public class MainActivity extends Activity {
     }
     private int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
+
+    private class EndermanArt extends View {
+        private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+        EndermanArt(){super(MainActivity.this);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
+        private void rect(Canvas c,int color,float l,float t,float r,float b){
+            paint.setColor(color);paint.setStyle(Paint.Style.FILL);paint.setShader(null);
+            c.drawRect(l,t,r,b,paint);
+        }
+        @Override protected void onDraw(Canvas canvas){
+            super.onDraw(canvas);
+            float w=getWidth(),h=getHeight();
+            canvas.save();
+            Path clip=new Path();
+            clip.addRoundRect(0,0,w,h,dp(22),dp(22),Path.Direction.CW);
+            canvas.clipPath(clip);
+            paint.setShader(new android.graphics.LinearGradient(0,0,w,h,
+                new int[]{Color.rgb(42,39,52),Color.rgb(22,21,29),Color.rgb(12,12,17)},
+                null,android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawRect(0,0,w,h,paint);paint.setShader(null);
+            // Distant blocky landscape
+            int shadow=Color.rgb(17,16,23);
+            rect(canvas,shadow,w*.52f,h*.68f,w*.70f,h);
+            rect(canvas,shadow,w*.66f,h*.56f,w*.84f,h);
+            rect(canvas,shadow,w*.79f,h*.70f,w,h);
+            rect(canvas,Color.rgb(25,23,33),w*.58f,h*.61f,w*.72f,h*.76f);
+            rect(canvas,Color.rgb(25,23,33),w*.75f,h*.48f,w*.90f,h*.68f);
+            // Enderman silhouette on the right
+            float cx=w*.82f, top=h*.16f, unit=h*.105f;
+            int black=Color.rgb(7,7,11);
+            rect(canvas,black,cx-unit*.72f,top,cx+unit*.72f,top+unit*1.38f);
+            rect(canvas,Color.rgb(12,10,17),cx-unit*.58f,top+unit*1.48f,cx+unit*.58f,h*.78f);
+            rect(canvas,black,cx-unit*.90f,top+unit*1.55f,cx-unit*.56f,h*.96f);
+            rect(canvas,black,cx+unit*.56f,top+unit*1.55f,cx+unit*.90f,h*.96f);
+            rect(canvas,black,cx-unit*.48f,h*.72f,cx-unit*.16f,h*1.04f);
+            rect(canvas,black,cx+unit*.16f,h*.72f,cx+unit*.48f,h*1.04f);
+            // Subtle violet eyes
+            paint.setColor(Color.rgb(174,112,255));paint.setStyle(Paint.Style.FILL);
+            paint.setShadowLayer(dp(7),0,0,Color.rgb(137,70,255));
+            canvas.drawRect(cx-unit*.48f,top+unit*.72f,cx-unit*.12f,top+unit*.84f,paint);
+            canvas.drawRect(cx+unit*.12f,top+unit*.72f,cx+unit*.48f,top+unit*.84f,paint);
+            paint.clearShadowLayer();
+            // Soft dark overlay keeps the title readable
+            paint.setShader(new android.graphics.LinearGradient(0,0,w*.78f,0,
+                new int[]{Color.argb(0,0,0,0),Color.argb(20,0,0,0),Color.argb(100,0,0,0)},
+                null,android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawRect(0,0,w,h,paint);paint.setShader(null);
+            canvas.restore();
+            paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(dp(1));
+            paint.setColor(Color.rgb(53,51,62));canvas.drawRoundRect(0,0,w,h,dp(22),dp(22),paint);
+            paint.setStyle(Paint.Style.FILL);
+        }
+    }
 
     private class LogoView extends View {
         private final Paint p=new Paint(3);
