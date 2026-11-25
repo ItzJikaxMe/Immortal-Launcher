@@ -188,6 +188,7 @@ public class MainActivity extends Activity {
         content.addView(txt("Add Version",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(8)));
         content.addView(txt("Choose an edition to install",13,MUTED,false),margins(-1,-2,dp(5),0,0,dp(10)));
         addVersionAction("CREATE VANILLA INSTANCE","Vanilla");
+        addVersionAction("INSTALL OPTIFINE","OptiFine");
         addVersionAction("CREATE FABRIC INSTANCE","Fabric");
         addVersionAction("CREATE QUILT INSTANCE","Quilt");
         addVersionAction("CREATE LEGACY FABRIC INSTANCE","Legacy Fabric");
@@ -290,7 +291,9 @@ public class MainActivity extends Activity {
             public void onStartTrackingTouch(SeekBar b){}
             public void onStopTrackingTouch(SeekBar b){prefs.edit().putInt("ram_mb",512+b.getProgress()).apply();}
         });
-        settingsText("Java Runtime", "Select a Java runtime installed in Immortal's runtime folder", "java_runtime");
+        TextView runtime=txt("Java Runtime  •  "+prefs.getString("java_runtime","Auto / not selected")+"  ⌄",13,TEXT,true);
+        runtime.setPadding(dp(10),dp(10),dp(10),dp(10)); runtime.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
+        content.addView(runtime,margins(-1,dp(42),0,dp(3),0,dp(3))); runtime.setOnClickListener(v->chooseJavaRuntime(runtime));
         settingsText("JVM Arguments", "-Xmx is managed by the RAM slider; add other JVM flags here", "jvm_args");
         settingsText("Game Resolution", "Default / device resolution", "resolution");
         settingsSwitch("Enable VSync","vsync",true);
@@ -302,6 +305,23 @@ public class MainActivity extends Activity {
         content.addView(note,margins(-1,-2,dp(5),dp(12),dp(5),dp(8)));
     }
 
+    private void chooseJavaRuntime(TextView view) {
+        java.io.File root=new java.io.File(getFilesDir(),"runtimes");
+        java.util.ArrayList<String> names=new java.util.ArrayList<>();
+        java.io.File[] dirs=root.listFiles();
+        if(dirs!=null) for(java.io.File d:dirs) if(d.isDirectory()) names.add(d.getName());
+        if(names.isEmpty()) {
+            new android.app.AlertDialog.Builder(this).setTitle("Java Runtime")
+                .setMessage("No Java runtimes are installed yet. Immortal needs an Android-compatible Java runtime before Minecraft can launch.")
+                .setPositiveButton("OK",null).show(); return;
+        }
+        names.add(0,"Auto");
+        new android.app.AlertDialog.Builder(this).setTitle("Choose Java Runtime")
+            .setItems(names.toArray(new String[0]),(d,which)->{
+                String value=names.get(which); prefs.edit().putString("java_runtime",value).apply();
+                view.setText("Java Runtime  •  "+value+"  ⌄");
+            }).setNegativeButton("Cancel",null).show();
+    }
     private void settingsText(String title,String hint,String key) {
         content.addView(txt(title,14,TEXT,true),margins(-1,-2,dp(5),dp(7),0,dp(3)));
         EditText input=new EditText(this); input.setTextSize(12); input.setTextColor(TEXT);
@@ -403,6 +423,11 @@ public class MainActivity extends Activity {
     }
 
     private void downloadBaseVersion() {
+        if(!"Vanilla".equals(selectedLoader)) {
+            toast(selectedLoader+" instance installer is not implemented yet. The version picker is ready, but this loader will not be marked installed.");
+            if(downloadStatus!=null) downloadStatus.setText(selectedLoader+" installer integration is still required; no false installed profile was created.");
+            return;
+        }
         final String game=selectedMinecraftVersion;
         if(downloadStatus!=null) downloadStatus.setText("Preparing Minecraft "+game+" files...");
         new Thread(()->{
