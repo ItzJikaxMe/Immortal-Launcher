@@ -68,6 +68,7 @@ public class MainActivity extends Activity {
         body.addView(navColumn,new LinearLayout.LayoutParams(dp(145),-1));
         addNav("▶","Play"); addNav("▦","Mods"); addNav("▰","Resource Pack");
         addNav("☼","Shaders"); addNav("▱","Versions"); addNav("☷","Settings"); addNav("♟","Skins");
+        addNav("▧","Modpacks"); addNav("◉","Accounts"); addNav("▤","Graphics"); addNav("≡","Logs");
 
         View divider=new View(this);
         divider.setBackgroundColor(Color.rgb(49,47,57));
@@ -136,6 +137,11 @@ public class MainActivity extends Activity {
         if("Settings".equals(selected)) { showSettingsPage(); return; }
         if("Versions".equals(selected)) { showInstalledVersionsPage(); return; }
         if("Add Version".equals(selected)) { showAddVersionPage(); return; }
+        if("Mods".equals(selected) || "Resource Pack".equals(selected) || "Shaders".equals(selected)
+                || "Modpacks".equals(selected) || "Skins".equals(selected)) { showFileLibraryPage(); return; }
+        if("Accounts".equals(selected)) { showAccountsPage(); return; }
+        if("Graphics".equals(selected)) { showGraphicsPage(); return; }
+        if("Logs".equals(selected)) { showLogsPage(); return; }
         if(!"Play".equals(selected)) {
             content.addView(txt(selected,24,TEXT,true),margins(-1,-2,dp(10),dp(12),0,dp(10)));
             LinearLayout panel=card(); panel.setGravity(Gravity.CENTER);
@@ -177,8 +183,7 @@ public class MainActivity extends Activity {
         versionButton=txt("Installed version: "+selectedMinecraftVersion+"  ⌄",13,TEXT,true);
         versionButton.setGravity(Gravity.CENTER_VERTICAL); versionButton.setPadding(dp(13),0,dp(12),0);
         versionButton.setBackground(shape(PANEL2,18,Color.rgb(50,47,59)));
-        content.addView(versionButton,margins(-1,dp(38),0,dp(9),0,0));
-        versionButton.setOnClickListener(v->showInstalledVersionPicker());
+        content.addView(versionButton,margins(-1,dp(38),0,dp(9),0,0));        versionButton.setOnClickListener(v->showInstalledVersionPicker());
 
         downloadStatus=txt("Choose an installed version or add a new one.",12,MUTED,false);
         content.addView(downloadStatus,margins(-1,-2,0,dp(10),0,0));
@@ -260,8 +265,14 @@ public class MainActivity extends Activity {
         java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions");
         java.io.File[] files=dir.listFiles();
         if(files!=null) for(java.io.File f:files)
-            if(f.isDirectory() && new java.io.File(f,f.getName()+".jar").exists()
-                && new java.io.File(f,f.getName()+".json").exists()) out.add(f.getName());
+            if(f.isDirectory() && new java.io.File(f,f.getName()+".json").exists()) {
+                java.io.File jar=new java.io.File(f,f.getName()+".jar");
+                java.io.File profile=new java.io.File(f,f.getName()+".json");
+                boolean inherited=false;
+                try { inherited=new String(java.nio.file.Files.readAllBytes(profile.toPath()),"UTF-8").contains("\\"inheritsFrom\\""); }
+                catch(Exception ignored) {}
+                if(jar.exists() || inherited) out.add(f.getName());
+            }
         java.util.Collections.sort(out); return out;
     }
 
@@ -340,6 +351,138 @@ public class MainActivity extends Activity {
         sw.setOnCheckedChangeListener((b,checked)->prefs.edit().putBoolean(key,checked).apply());
     }
 
+    private void showFileLibraryPage() {
+        String folder;
+        String title=selected;
+        if("Mods".equals(selected)) folder="mods";
+        else if("Resource Pack".equals(selected)) folder="resourcepacks";
+        else if("Shaders".equals(selected)) folder="shaderpacks";
+        else if("Modpacks".equals(selected)) folder="modpacks";
+        else folder="skins";
+        java.io.File base=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+selectedMinecraftVersion+"/"+folder);
+        if(!base.exists()) base.mkdirs();
+        content.addView(txt(title,23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(4)));
+        content.addView(txt("Files for "+selectedMinecraftVersion+" • stored in the selected instance",12,MUTED,false),
+            margins(-1,-2,dp(5),0,0,dp(9)));
+        TextView importButton=txt("+ Import "+(folder.equals("skins")?"PNG skin":"file"),13,BG,true);
+        importButton.setGravity(Gravity.CENTER);
+        importButton.setBackground(shape(Color.rgb(190,187,199),16,Color.TRANSPARENT));
+        content.addView(importButton,margins(dp(155),dp(38),0,0,0,dp(10)));
+        importButton.setOnClickListener(v->{
+            android.content.Intent intent=new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            startActivityForResult(intent,folder.equals("mods")?101:folder.equals("resourcepacks")?102:folder.equals("shaderpacks")?103:folder.equals("modpacks")?104:105);
+        });
+        java.io.File[] files=base.listFiles();
+        if(files==null || files.length==0) {
+            LinearLayout empty=card(); empty.setGravity(Gravity.CENTER);
+            empty.addView(txt("No files yet. Import a file to add it here.",13,MUTED,false));
+            content.addView(empty,new LinearLayout.LayoutParams(-1,dp(90)));
+            return;
+        }
+        java.util.Arrays.sort(files,(a,b)->a.getName().compareToIgnoreCase(b.getName()));
+        for(java.io.File file:files) {
+            LinearLayout row=card(); row.setGravity(Gravity.CENTER_VERTICAL);
+            TextView name=txt(file.getName(),13,TEXT,true);
+            row.addView(name,new LinearLayout.LayoutParams(0,-2,1));
+            TextView remove=txt("REMOVE",10,ACCENT,true); row.addView(remove);
+            content.addView(row,margins(-1,dp(44),0,dp(3),0,dp(3)));
+            remove.setOnClickListener(v->new android.app.AlertDialog.Builder(this)
+                .setTitle("Remove "+file.getName()+"?")
+                .setNegativeButton("Cancel",null).setPositiveButton("Remove",(d,w)->{file.delete();showPage();}).show());
+        }
+    }
+
+    @Override protected void onActivityResult(int requestCode,int resultCode,android.content.Intent data) {
+        super.onActivityResult(requestCode,resultCode,data);
+        if(resultCode!=RESULT_OK || data==null || data.getData()==null) return;
+        String folder=requestCode==101?"mods":requestCode==102?"resourcepacks":requestCode==103?"shaderpacks":requestCode==104?"modpacks":"skins";
+        String expected=requestCode==101?".jar":requestCode==105?".png":".zip";
+        android.net.Uri uri=data.getData();
+        new Thread(()->{
+            try {
+                String name="import-"+System.currentTimeMillis()+expected;
+                try(android.database.Cursor cursor=getContentResolver().query(uri,null,null,null,null)) {
+                    if(cursor!=null && cursor.moveToFirst()) {
+                        int index=cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                        if(index>=0 && cursor.getString(index)!=null) name=cursor.getString(index).replaceAll("[^A-Za-z0-9._ -]","_");
+                    }
+                }
+                if(!name.toLowerCase(java.util.Locale.ROOT).endsWith(expected))
+                    throw new java.io.IOException("Choose a "+expected+" file for this section.");
+                java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+selectedMinecraftVersion+"/"+folder);
+                if(!dir.exists()) dir.mkdirs();
+                java.io.File target=new java.io.File(dir,name);
+                try(java.io.InputStream in=getContentResolver().openInputStream(uri);
+                    java.io.FileOutputStream out=new java.io.FileOutputStream(target)) {
+                    if(in==null) throw new java.io.IOException("Cannot read selected file.");
+                    byte[] buffer=new byte[16384]; int n;
+                    while((n=in.read(buffer))!=-1) out.write(buffer,0,n);
+                }
+                final String importedName=name;
+                runOnUiThread(()->{toast("Imported "+importedName);showPage();});
+            } catch(Exception e) { runOnUiThread(()->toast("Import failed: "+e.getMessage())); }
+        }).start();
+    }
+
+    private void showAccountsPage() {
+        content.addView(txt("Accounts",23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(8)));
+        content.addView(txt("Offline profile",14,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(3)));
+        EditText player=new EditText(this); player.setSingleLine(true); player.setTextColor(TEXT);
+        player.setHintTextColor(MUTED); player.setHint("Player name");
+        player.setText(prefs.getString("offline_player","Player"));
+        player.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
+        content.addView(player,margins(-1,dp(44),0,0,0,dp(8)));
+        TextView save=txt("Save offline profile",13,BG,true); save.setGravity(Gravity.CENTER);
+        save.setBackground(shape(Color.rgb(190,187,199),14,Color.TRANSPARENT));
+        content.addView(save,margins(dp(170),dp(38),0,0,0,dp(10)));
+        save.setOnClickListener(v->{String name=player.getText().toString().trim();
+            if(name.isEmpty() || name.length()>16){toast("Minecraft names must be 1–16 characters.");return;}
+            prefs.edit().putString("offline_player",name).apply();toast("Offline profile saved.");
+        });
+        LinearLayout note=card();
+        note.addView(txt("Microsoft account sign-in is not connected yet. Offline profiles do not provide access to online-mode servers.",12,MUTED,false));
+        content.addView(note,new LinearLayout.LayoutParams(-1,-2));
+    }
+
+    private void showGraphicsPage() {
+        content.addView(txt("Graphics & Device Diagnostics",22,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(8)));
+        android.app.ActivityManager am=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);
+        android.content.pm.ConfigurationInfo info=am.getDeviceConfigurationInfo();
+        String gl=info==null?"Unknown":info.getGlEsVersion();
+        int req=info==null?0:info.reqGlEsVersion;
+        long max=Runtime.getRuntime().maxMemory()/1048576L;
+        addDiagnostic("OpenGL ES reported by Android",gl);
+        addDiagnostic("OpenGL requirement code",String.format(java.util.Locale.ROOT,"0x%08X",req));
+        addDiagnostic("App Java heap limit",max+" MB");
+        addDiagnostic("Device architecture",System.getProperty("os.arch","Unknown"));
+        addDiagnostic("Selected Minecraft version",selectedMinecraftVersion);
+        addDiagnostic("Selected loader",selectedLoader);
+        LinearLayout note=card();
+        note.addView(txt("This page reports Android graphics capabilities. It is not a live Minecraft shader renderer; rendering Minecraft Java on Android still needs a compatible graphics translation layer and native libraries.",12,MUTED,false));
+        content.addView(note,margins(-1,-2,0,dp(10),0,0));
+    }
+
+    private void addDiagnostic(String label,String value) {
+        LinearLayout row=card(); row.setOrientation(LinearLayout.VERTICAL);
+        row.addView(txt(label,11,MUTED,false));
+        row.addView(txt(value,14,TEXT,true),margins(-1,-2,0,dp(3),0,0));
+        content.addView(row,margins(-1,-2,0,dp(3),0,dp(3)));
+    }
+
+    private void showLogsPage() {
+        content.addView(txt("Launcher Diagnostics",23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(8)));
+        addDiagnostic("App version","0.1.0");
+        addDiagnostic("Selected instance",selectedMinecraftVersion);
+        addDiagnostic("Loader",selectedLoader);
+        addDiagnostic("Storage directory",String.valueOf(getExternalFilesDir(null)));
+        addDiagnostic("Java runtime",prefs.getString("java_runtime","Not installed / not selected"));
+        LinearLayout note=card();
+        note.addView(txt("Installer progress and errors are shown in the status message while downloading. Persistent log capture will be added with the game process/runtime integration.",12,MUTED,false));
+        content.addView(note,margins(-1,-2,0,dp(8),0,0));
+    }
+
     private void loadVersionCatalog() {
         downloadStatus.setText("Loading official Minecraft version list...");
         new Thread(() -> {
@@ -357,8 +500,7 @@ public class MainActivity extends Activity {
                         labels.add(id+(type.equals("release")?"  •  Release":type.equals("old_beta")?"  •  Old Beta":"  •  Old Alpha"));
                     }
                 }
-                catalogIds=ids; catalogLabels=labels;
-                runOnUiThread(() -> {
+                catalogIds=ids; catalogLabels=labels;                runOnUiThread(() -> {
                     String[] choices=labels.toArray(new String[0]);
                     new android.app.AlertDialog.Builder(this)
                         .setTitle("Minecraft Java versions")
@@ -432,21 +574,26 @@ public class MainActivity extends Activity {
         final String game=selectedMinecraftVersion;
         final String loader=selectedLoader;
         if(downloadStatus!=null) downloadStatus.setText("Preparing "+game+" • "+loader+"…");
-        if(!"Vanilla".equals(loader)) {
-            toast(loader+" installation is not connected yet. Choose Vanilla for the verified game-file installer.");
-            if(downloadStatus!=null) downloadStatus.setText(loader+" installer is a separate integration step; this profile has not been marked installed.");
-            return;
-        }
         new Thread(() -> {
             try {
                 MinecraftInstaller installer=new MinecraftInstaller(this,
-                    message -> runOnUiThread(() -> {
-                        if(downloadStatus!=null) downloadStatus.setText(message);
-                    }));
+                    message -> runOnUiThread(() -> { if(downloadStatus!=null) downloadStatus.setText(message); }));
                 installer.install(game);
+                String installedId=game;
+                if("Fabric".equals(loader) || "Quilt".equals(loader)) {
+                    LoaderInstaller loaderInstaller=new LoaderInstaller(this,
+                        message -> runOnUiThread(() -> { if(downloadStatus!=null) downloadStatus.setText(message); }));
+                    installedId=loaderInstaller.install(game,loader);
+                } else if(!"Vanilla".equals(loader)) {
+                    throw new java.io.IOException(loader+" metadata is not enough to install this loader. Its official installer workflow is not implemented yet; base game files were downloaded, but no loader profile was created.");
+                }
+                final String finalId=installedId;
                 runOnUiThread(() -> {
-                    if(downloadStatus!=null) downloadStatus.setText("Minecraft "+game+" base files installed. A compatible Android Java runtime and graphics bridge are still required to launch.");
-                    toast("Minecraft "+game+" files installed");
+                    selectedMinecraftVersion=finalId;
+                    prefs.edit().putString("selected_version",finalId).putString("selected_loader",loader).apply();
+                    if(downloadStatus!=null) downloadStatus.setText(finalId+" installed. Android Java runtime and graphics bridge are still required to launch.");
+                    toast(finalId+" installed");
+                    if("Versions".equals(selected)) showPage();
                 });
             } catch(Exception e) {
                 runOnUiThread(() -> {
@@ -537,8 +684,7 @@ public class MainActivity extends Activity {
             int black=Color.rgb(7,7,11);
             rect(canvas,black,cx-unit*.72f,top,cx+unit*.72f,top+unit*1.38f);
             rect(canvas,Color.rgb(12,10,17),cx-unit*.58f,top+unit*1.48f,cx+unit*.58f,h*.78f);
-            rect(canvas,black,cx-unit*.90f,top+unit*1.55f,cx-unit*.56f,h*.96f);
-            rect(canvas,black,cx+unit*.56f,top+unit*1.55f,cx+unit*.90f,h*.96f);
+            rect(canvas,black,cx-unit*.90f,top+unit*1.55f,cx-unit*.56f,h*.96f);            rect(canvas,black,cx+unit*.56f,top+unit*1.55f,cx+unit*.90f,h*.96f);
             rect(canvas,black,cx-unit*.48f,h*.72f,cx-unit*.16f,h*1.04f);
             rect(canvas,black,cx+unit*.16f,h*.72f,cx+unit*.48f,h*1.04f);
             // Subtle violet eyes
