@@ -362,11 +362,7 @@ public class MainActivity extends Activity {
         content.addView(row,margins(-1,-2,0,dp(3),0,dp(3)));
         row.setOnClickListener(v->{
             if("runtime".equals(action)) {
-                TextView label=txt("Java Runtime  •  "+prefs.getString("java_runtime","Auto"),13,TEXT,true);
-                new android.app.AlertDialog.Builder(this).setTitle("Java Runtime")
-                    .setMessage("Select from runtime folders already installed in Immortal.")
-                    .setPositiveButton("Choose runtime",(d,w)->chooseJavaRuntime(label))
-                    .setNegativeButton("Close",null).show();
+                chooseJavaRuntime(txt("Java Runtime",13,TEXT,true));
             } else if("controls".equals(action)) {
                 toast("The in-game control layout editor needs the Minecraft input engine.");
             } else if("drivers".equals(action)) {
