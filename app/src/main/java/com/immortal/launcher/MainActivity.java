@@ -305,37 +305,130 @@ public class MainActivity extends Activity {
     }
 
     private void showSettingsPage() {
-        content.addView(txt("Launcher Settings",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(10)));
-        content.addView(txt("Memory Allocation",15,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(2)));
+        content.addView(txt("Settings",23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(8)));
+        content.addView(txt("Personalize the Java environment, graphics and controls.",12,MUTED,false),
+            margins(-1,-2,dp(5),0,0,dp(10)));
+
+        settingsSection("JAVA ENVIRONMENT","Runtime, memory and JVM options");
+        TextView runtime=txt("Java Runtime  •  "+prefs.getString("java_runtime","Auto")+"  ⌄",13,TEXT,true);
+        runtime.setGravity(Gravity.CENTER_VERTICAL);
+        runtime.setPadding(dp(12),0,dp(12),0);
+        runtime.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
+        content.addView(runtime,margins(-1,dp(42),0,dp(3),0,dp(4)));
+        runtime.setOnClickListener(v->chooseJavaRuntime(runtime));
+
         android.app.ActivityManager.MemoryInfo memoryInfo=new android.app.ActivityManager.MemoryInfo();
         ((android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(memoryInfo);
         int deviceRamMb=(int)(memoryInfo.totalMem/1048576L);
-        int maxRamMb=Math.max(1024,Math.min(8192,(int)(deviceRamMb*0.65f)));
-        int minRamMb=512;
-        int memory=Math.min(maxRamMb,Math.max(minRamMb,prefs.getInt("ram_mb",Math.min(2048,maxRamMb/2))));
-        TextView ramValue=txt(memory+" MB",13,ACCENT,true);
-        content.addView(ramValue,margins(-1,-2,dp(5),0,0,0));
-        SeekBar ram=new SeekBar(this); ram.setMax(maxRamMb-minRamMb); ram.setProgress(Math.max(0,Math.min(maxRamMb-minRamMb,memory-minRamMb)));
-        content.addView(ram,margins(-1,dp(34),0,0,0,dp(8)));
-        ram.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-            public void onProgressChanged(SeekBar b,int value,boolean user){int mb=minRamMb+value;ramValue.setText(mb+" MB");}
-            public void onStartTrackingTouch(SeekBar b){}
-            public void onStopTrackingTouch(SeekBar b){prefs.edit().putInt("ram_mb",minRamMb+b.getProgress()).apply();}
-        });
-        TextView runtime=txt("Java Runtime  •  "+prefs.getString("java_runtime","Auto / not selected")+"  ⌄",13,TEXT,true);
-        runtime.setPadding(dp(10),dp(10),dp(10),dp(10)); runtime.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
-        content.addView(runtime,margins(-1,dp(42),0,dp(3),0,dp(3))); runtime.setOnClickListener(v->chooseJavaRuntime(runtime));
-        settingsText("JVM Arguments", "-Xmx is managed by the RAM slider; add other JVM flags here", "jvm_args");
-        settingsText("Game Resolution", "Default / device resolution", "resolution");
-        settingsSwitch("Enable VSync","vsync",true);
-        settingsSwitch("Show FPS","show_fps",false);
+        int maxRamMb=Math.max(512,Math.min(8192,deviceRamMb-(deviceRamMb<3064?800:1024)));
+        if(!android.os.Process.is64Bit()) maxRamMb=Math.min(1024,maxRamMb);
+        int minRamMb=256;
+        maxRamMb=Math.max(minRamMb,maxRamMb);
+        int savedRam=prefs.getInt("ram_mb",Math.min(2048,maxRamMb));
+        int memory=Math.max(minRamMb,Math.min(maxRamMb,savedRam));
+        settingsSlider("Memory allocation", "ram_mb", minRamMb, maxRamMb, 128, memory, " MB");
+
+        settingsText("JVM Arguments",
+            "Extra JVM flags (RAM is controlled above)", "jvm_args");
+        settingsSwitch("Java sandbox","java_sandbox",true);
+
+        java.io.File runtimeRoot=new java.io.File(getFilesDir(),"runtimes");
+        java.io.File[] installedRuntimes=runtimeRoot.listFiles();
+        int runtimeCount=0;
+        if(installedRuntimes!=null) for(java.io.File item:installedRuntimes)
+            if(item.isDirectory()) runtimeCount++;
+        addSettingsNote(runtimeCount==0
+            ? "No Android Java runtime is installed in the launcher yet. Runtime selection becomes available after a compatible runtime is added."
+            : runtimeCount+" runtime folder(s) detected. Choose the active runtime above.");
+
+        settingsSection("GRAPHICS","Display and rendering preferences");
+        settingsChoice("Preferred renderer","renderer",
+            new String[]{"Auto","OpenGL ES 2","OpenGL ES 3","Vulkan (device support required)"},
+            new String[]{"auto","gles2","gles3","vulkan"});
+        settingsSlider("Resolution scale","resolution_scale",50,100,5,
+            prefs.getInt("resolution_scale",100),"%");
+        settingsSwitch("Force VSync","vsync",true);
+        settingsSwitch("Sustained performance mode","sustained_performance",false);
+        settingsSwitch("Use alternate display surface","alternate_surface",false);
+        settingsSwitch("Ignore display cutout","ignore_notch",false);
+        addSettingsNote("These graphics choices are saved in Immortal. They will affect Minecraft only when the Android game runtime and renderer bridge are connected.");
+
+        settingsSection("CONTROLS","Touch and input preferences");
+        settingsSwitch("Use custom touch controls","custom_controls",false);
+        settingsSwitch("Disable touch gestures","disable_gestures",false);
+        settingsSwitch("Disable double-tap action","disable_double_tap",false);
+        settingsSlider("Touch button size","button_scale",70,140,5,
+            prefs.getInt("button_scale",100),"%");
+        settingsSlider("Virtual mouse speed","mouse_speed",50,200,10,
+            prefs.getInt("mouse_speed",100),"%");
+
+        settingsSection("LAUNCHER","Interface and diagnostics");
+        settingsSwitch("Show FPS overlay","show_fps",false);
         settingsSwitch("Fullscreen","fullscreen",true);
-        settingsSwitch("Use custom controls","custom_controls",false);
         settingsSwitch("Keep launcher logs","logs",true);
-        TextView note=txt("Java runtimes are selected from runtimes installed inside the app. Runtime download/installation and applying JVM settings to the game process are not connected yet.",11,MUTED,false);
-        content.addView(note,margins(-1,-2,dp(5),dp(12),dp(5),dp(8)));
+        addSettingsNote("Settings are stored on this device. Options that depend on a game runtime will take effect after game launching is integrated.");
     }
 
+    private void settingsSection(String title,String subtitle) {
+        LinearLayout section=card();
+        section.setOrientation(LinearLayout.VERTICAL);
+        TextView heading=txt(title,13,TEXT,true);
+        section.addView(heading);
+        section.addView(txt(subtitle,11,MUTED,false),margins(-1,-2,0,dp(2),0,0));
+        content.addView(section,margins(-1,-2,0,dp(4),0,dp(5)));
+    }
+
+    private void addSettingsNote(String message) {
+        TextView note=txt(message,11,MUTED,false);
+        note.setPadding(dp(3),dp(4),dp(3),dp(8));
+        content.addView(note,new LinearLayout.LayoutParams(-1,-2));
+    }
+
+    private void settingsChoice(String title,String key,String[] labels,String[] values) {
+        String selectedValue=prefs.getString(key,values[0]);
+        int selectedIndex=0;
+        for(int i=0;i<values.length;i++) if(values[i].equals(selectedValue)) selectedIndex=i;
+        TextView choice=txt(title+"  •  "+labels[selectedIndex]+"  ⌄",13,TEXT,true);
+        choice.setGravity(Gravity.CENTER_VERTICAL);
+        choice.setPadding(dp(12),0,dp(12),0);
+        choice.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
+        content.addView(choice,margins(-1,dp(42),0,dp(3),0,dp(4)));
+        choice.setOnClickListener(v->new android.app.AlertDialog.Builder(this)
+            .setTitle(title).setSingleChoiceItems(labels,selectedIndex,(dialog,which)->{
+                prefs.edit().putString(key,values[which]).apply();
+                choice.setText(title+"  •  "+labels[which]+"  ⌄");
+                dialog.dismiss();
+            }).setNegativeButton("Cancel",null).show());
+    }
+
+    private void settingsSlider(String title,String key,int min,int max,int step,int initial,String suffix) {
+        LinearLayout block=new LinearLayout(this);
+        block.setOrientation(LinearLayout.VERTICAL);
+        block.setPadding(dp(3),dp(4),dp(3),dp(4));
+        LinearLayout line=new LinearLayout(this);
+        line.setGravity(Gravity.CENTER_VERTICAL);
+        TextView label=txt(title,13,TEXT,true);
+        line.addView(label,new LinearLayout.LayoutParams(0,-2,1));
+        int safeValue=Math.max(min,Math.min(max,initial));
+        TextView value=txt(safeValue+suffix,12,ACCENT,true);
+        line.addView(value);
+        block.addView(line);
+        SeekBar seek=new SeekBar(this);
+        int steps=Math.max(1,(max-min)/step);
+        seek.setMax(steps);
+        seek.setProgress(Math.max(0,Math.min(steps,(safeValue-min)/step)));
+        block.addView(seek,new LinearLayout.LayoutParams(-1,dp(30)));
+        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onProgressChanged(SeekBar bar,int progress,boolean fromUser){
+                value.setText((min+progress*step)+suffix);
+            }
+            public void onStartTrackingTouch(SeekBar bar){}
+            public void onStopTrackingTouch(SeekBar bar){
+                prefs.edit().putInt(key,min+bar.getProgress()*step).apply();
+            }
+        });
+        content.addView(block,margins(-1,-2,0,dp(2),0,dp(3)));
+    }
     private void chooseJavaRuntime(TextView view) {
         java.io.File root=new java.io.File(getFilesDir(),"runtimes");
         java.util.ArrayList<String> names=new java.util.ArrayList<>();
@@ -359,7 +452,7 @@ public class MainActivity extends Activity {
         input.setHintTextColor(MUTED); input.setSingleLine(false); input.setHint(hint);
         input.setText(prefs.getString(key,""));
         input.setPadding(dp(10),dp(5),dp(10),dp(5)); input.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
-        content.addView(input,margins(-1,dp(42),0,0,0,dp(3)));
+        content.addView(input,margins(-1,dp(58),0,0,0,dp(3)));
         input.setOnFocusChangeListener((v,has)->{if(!has)prefs.edit().putString(key,input.getText().toString()).apply();});
     }
 
