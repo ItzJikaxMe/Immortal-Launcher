@@ -155,7 +155,7 @@ public class MainActivity extends Activity {
         LinearLayout heroText=new LinearLayout(this); heroText.setOrientation(LinearLayout.VERTICAL);
         heroText.setGravity(Gravity.CENTER_VERTICAL); heroText.setPadding(dp(22),dp(15),dp(22),dp(15));
         heroText.addView(txt("Ready to play",27,TEXT,true));
-        heroText.addView(txt("Minecraft Java  •  "+selectedMinecraftVersion+" / "+selectedLoader,14,MUTED,false),
+        heroText.addView(txt(selectedMinecraftVersion.isEmpty()?"Choose a Minecraft Java version":"Minecraft Java  •  "+selectedMinecraftVersion+" / "+selectedLoader,14,MUTED,false),
             margins(-1,-2,0,dp(5),0,0));
         hero.addView(heroText,new FrameLayout.LayoutParams(-1,-1));
         content.addView(hero,new LinearLayout.LayoutParams(-1,dp(174)));
@@ -185,7 +185,7 @@ public class MainActivity extends Activity {
         instance.setGravity(Gravity.CENTER_VERTICAL); instance.setPadding(dp(12),0,dp(12),0);
         instance.setBackground(shape(PANEL2,14,Color.rgb(50,47,59)));
         content.addView(instance,margins(-1,dp(36),0,dp(8),0,0));
-        instance.setOnClickListener(v->showInstalledVersionPicker());
+        instance.setOnClickListener(v->{if(installed.isEmpty())open("Add Version");else showInstalledVersionPicker();});
     }    private void showAddVersionPage() {
         content.addView(txt("Add Version",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(8)));
         content.addView(txt("Choose an edition to install",13,MUTED,false),margins(-1,-2,dp(5),0,0,dp(10)));
@@ -307,16 +307,20 @@ public class MainActivity extends Activity {
     private void showSettingsPage() {
         content.addView(txt("Launcher Settings",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(10)));
         content.addView(txt("Memory Allocation",15,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(2)));
-        int max=Math.max(1024,(int)(Runtime.getRuntime().maxMemory()/1048576L));
-        int memory=prefs.getInt("ram_mb",Math.min(2048,Math.max(512,max/2)));
+        android.app.ActivityManager.MemoryInfo memoryInfo=new android.app.ActivityManager.MemoryInfo();
+        ((android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(memoryInfo);
+        int deviceRamMb=(int)(memoryInfo.totalMem/1048576L);
+        int maxRamMb=Math.max(1024,Math.min(8192,(int)(deviceRamMb*0.65f)));
+        int minRamMb=512;
+        int memory=Math.min(maxRamMb,Math.max(minRamMb,prefs.getInt("ram_mb",Math.min(2048,maxRamMb/2))));
         TextView ramValue=txt(memory+" MB",13,ACCENT,true);
         content.addView(ramValue,margins(-1,-2,dp(5),0,0,0));
-        SeekBar ram=new SeekBar(this); ram.setMax(8192-512); ram.setProgress(Math.max(0,Math.min(8192-512,memory-512)));
+        SeekBar ram=new SeekBar(this); ram.setMax(maxRamMb-minRamMb); ram.setProgress(Math.max(0,Math.min(maxRamMb-minRamMb,memory-minRamMb)));
         content.addView(ram,margins(-1,dp(34),0,0,0,dp(8)));
         ram.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-            public void onProgressChanged(SeekBar b,int value,boolean user){int mb=512+value;ramValue.setText(mb+" MB");}
+            public void onProgressChanged(SeekBar b,int value,boolean user){int mb=minRamMb+value;ramValue.setText(mb+" MB");}
             public void onStartTrackingTouch(SeekBar b){}
-            public void onStopTrackingTouch(SeekBar b){prefs.edit().putInt("ram_mb",512+b.getProgress()).apply();}
+            public void onStopTrackingTouch(SeekBar b){prefs.edit().putInt("ram_mb",minRamMb+b.getProgress()).apply();}
         });
         TextView runtime=txt("Java Runtime  •  "+prefs.getString("java_runtime","Auto / not selected")+"  ⌄",13,TEXT,true);
         runtime.setPadding(dp(10),dp(10),dp(10),dp(10)); runtime.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
