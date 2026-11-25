@@ -41,15 +41,49 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
 
-      - name: Apply Immortal app icon
+      - name: Apply Immortal package, icon and purple theme
+        shell: bash
         run: |
-          mkdir -p mojo/app_mojo/src/main/res/drawable-nodpi
-          cp app/src/main/res/drawable-nodpi/immortal_logo.webp mojo/app_mojo/src/main/res/drawable-nodpi/
-          mkdir -p mojo/app_mojo/src/main/res/mipmap-anydpi-v26
-          cp app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml mojo/app_mojo/src/main/res/mipmap-anydpi-v26/
-          cp app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml mojo/app_mojo/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
-          mkdir -p mojo/app_mojo/src/main/res/values
-          cp app/src/main/res/values/immortal_icon.xml mojo/app_mojo/src/main/res/values/
+          set -euo pipefail
+          APP=mojo/app_mojo
+          GRADLE_FILE="$APP/build.gradle"
+          RES="$APP/src/main/res"
+
+          # Keep Mojo's engine code, but install and identify it as Immortal.
+          sed -i 's/applicationId "git.artdeell.mjlaunch"/applicationId "com.immortal.launcher"/' "$GRADLE_FILE"
+          sed -i "/applicationIdSuffix '.debug'/d" "$GRADLE_FILE"
+          sed -i "s/git.artdeell.mjlaunch.debug/com.immortal.launcher/g" "$GRADLE_FILE"
+          sed -i "s/git.artdeell.mjlaunch.scoped.gamefolder.debug/com.immortal.launcher.scoped.gamefolder.debug/g" "$GRADLE_FILE"
+          sed -i "s/git.artdeell.mjlaunch.scoped.gamefolder/com.immortal.launcher.scoped.gamefolder/g" "$GRADLE_FILE"
+          sed -i "s/git.artdeell.mjlaunch/com.immortal.launcher/g" "$GRADLE_FILE"
+
+          # Use the supplied Immortal logo as the adaptive icon foreground.
+          mkdir -p "$RES/drawable-nodpi" "$RES/mipmap-anydpi-v26" "$RES/values"
+          cp app/src/main/res/drawable-nodpi/immortal_logo.webp "$RES/drawable-nodpi/immortal_logo.webp"
+          cp app/src/main/res/values/immortal_icon.xml "$RES/values/immortal_icon.xml"
+          cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/immortal_icon_background"/>
+              <foreground android:drawable="@drawable/immortal_logo"/>
+          </adaptive-icon>
+          XML
+          cp "$RES/mipmap-anydpi-v26/ic_launcher.xml" "$RES/mipmap-anydpi-v26/ic_launcher_round.xml"
+
+          # Replace Mojo's green accent palette with Immortal purple while preserving layout.
+          COLORS="$RES/values/colors.xml"
+          sed -i \
+            -e 's/#43D12B/#976FEB/g' \
+            -e 's/#7CEF68/#C0A4FF/g' \
+            -e 's/#79ED64/#B89AFF/g' \
+            -e 's/#67985D/#8064C7/g' \
+            -e 's/#5536B82A/#55976FEB/g' \
+            -e 's/#172719/#241B35/g' \
+            -e 's/#1B351C/#2A203C/g' \
+            -e 's/#142518/#21182F/g' "$COLORS"
+
+          grep -q 'applicationId "com.immortal.launcher"' "$GRADLE_FILE"
+          grep -q 'immortal_icon_background' "$RES/mipmap-anydpi-v26/ic_launcher.xml"
 
       - name: Build full-runtime debug APK
         run: gradle -p mojo --no-daemon :app_mojo:assembleFullDebug
