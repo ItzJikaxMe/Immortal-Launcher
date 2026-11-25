@@ -1,19 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-feature android:glEsVersion="0x00020000" />
+    <uses-feature android:name="android.hardware.type.pc" android:required="false" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <application
+        android:name="git.artdeell.mojo.MojoApplication"
         android:allowBackup="true"
-        android:label="Immortal Launcher"
+        android:allowNativeHeapPointerTagging="false"
+        android:appCategory="game"
+        android:hasFragileUserData="true"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher"
-        android:theme="@style/AppTheme"
-        android:supportsRtl="true">
+        android:isGame="true"
+        android:label="Immortal Launcher"
+        android:networkSecurityConfig="@xml/netconfig"
+        android:resizeableActivity="true"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/MojoLauncher.AppTheme"
+        android:enableOnBackInvokedCallback="false"
+        tools:ignore="UnusedAttribute">
+
         <activity
-            android:name=".ControlLayoutEditorActivity"
-            android:screenOrientation="landscape"
-            android:exported="false" />
+            android:name="com.immortal.launcher.ControlLayoutEditorActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|keyboard|navigation"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+
         <activity
-            android:name=".MainActivity"
+            android:name="com.immortal.launcher.MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:screenOrientation="landscape"
             android:exported="true">
@@ -22,5 +54,95 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <meta-data
+            android:name="android.max_aspect"
+            android:value="ratio_float" />
+
+        <activity android:name="git.artdeell.mojo.MissingStorageActivity" android:exported="false" />
+        <activity android:name="git.artdeell.mojo.TestStorageActivity" android:exported="false" />
+        <activity android:name="git.artdeell.mojo.LauncherActivity" android:exported="false" />
+
+        <activity
+            android:name="git.artdeell.mojo.ImportControlActivity"
+            android:configChanges="keyboard|keyboardHidden"
+            android:exported="true"
+            android:launchMode="singleInstance"
+            android:windowSoftInputMode="stateVisible">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="text/json" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="git.artdeell.mojo.FatalErrorActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|keyboard|navigation"
+            android:theme="@style/Theme.AppCompat.DayNight.Dialog" />
+        <activity
+            android:name="git.artdeell.mojo.ShowErrorActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|keyboard|navigation"
+            android:theme="@style/Theme.AppCompat.DayNight.Dialog" />
+        <activity
+            android:name="git.artdeell.mojo.ExitActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|keyboard|navigation"
+            android:theme="@style/Theme.AppCompat.DayNight.Dialog" />
+
+        <activity
+            android:name="git.artdeell.mojo.awt.AWTActivity"
+            android:process=":gui_installer"
+            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
+            android:screenOrientation="sensorLandscape" />
+
+        <activity
+            android:name="git.artdeell.mojo.CustomControlsActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|keyboard|navigation"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape" />
+
+        <activity
+            android:name="git.artdeell.mojo.game.GameActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
+            android:launchMode="singleTop"
+            android:process=":game"
+            android:screenOrientation="sensorLandscape" />
+
+        <provider
+            android:name="git.artdeell.mojo.utils.scoped.FolderProvider"
+            android:authorities="@string/storageProviderAuthorities"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+
+        <service
+            android:name="git.artdeell.mojo.services.ProgressService"
+            android:foregroundServiceType="dataSync" />
+        <service
+            android:name="git.artdeell.mojo.services.GameService"
+            android:process=":game"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="This service maintains an interactive Minecraft Java game session." />
+        </service>
     </application>
+
+    <queries>
+        <package android:name="git.mojo.ffmpeg" />
+        <package android:name="git.mojo.angle" />
+        <package android:name="git.mojo.zink" />
+        <package android:name="git.mojo.mesa" />
+        <package android:name="git.artdeell.mojo" />
+        <package android:name="git.artdeell.mojo.debug" />
+        <package android:name="git.artdeell.mojo.pub" />
+        <package android:name="git.mojo.natives" />
+    </queries>
 </manifest>
