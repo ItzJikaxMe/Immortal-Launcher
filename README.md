@@ -7,7 +7,8 @@ Immortal Launcher is an Android launcher for Minecraft: Java Edition. The app id
 - Immortal launcher interface, version browsing, installation UI and settings.
 - Mojang metadata, vanilla game file installation, and verified downloads.
 - Fabric and Quilt profile/library installation.
-- Modrinth project discovery and verified file downloads.
+- Modrinth project discovery and verified file downloads for mods, resource packs, shaders and modpacks.
+- Client-side Modrinth .mrpack installation for Vanilla, Fabric and Quilt, including game/loader setup, manifest file downloads with SHA-1/SHA-512 checks, safe path validation and client overrides.
 - Immortal-native control layout editor and settings screens.
 - Pinned Android game engine source with Java runtime management, game process, GLFW/SDL and native rendering integration sources.
 - Engine Android manifest components and native build configuration.
@@ -15,9 +16,9 @@ Immortal Launcher is an Android launcher for Minecraft: Java Edition. The app id
 
 ## Engine integration status
 
-The engine sources and their native submodules are now pinned in this repository and wired into the Android build. The app APK build is the next verification gate. The current Immortal Play screen still needs its final adapter to create/select an engine instance, hand off the installed profile, connect account state and launch the game session. Until that adapter is completed and tested on a device, do not treat the Play button as a verified working Minecraft launch.
+The engine sources and their native submodules are pinned in this repository and wired into the Android build. Immortal's launch host now creates or selects an engine instance for the chosen version, applies launcher preferences, prepares an offline profile, loads the engine's version metadata and dispatches the game-launch signal. Vanilla, Fabric and Quilt game/profile files are stored under the shared Immortal app data directory.
 
-The existing installer currently stores game files in its own launcher data folder; engine instance/storage unification is part of the launch adapter work. Forge/NeoForge installer workflows, Microsoft login handoff, and full modpack manifest installation also require app-level integration.
+The remaining verification gate is a successful Android device launch across representative Minecraft versions and renderers. A successful CI APK build alone does not prove that a particular phone/GPU can start the game. Microsoft account sign-in is not connected to Immortal's account screen yet. Forge/NeoForge installer workflows are not integrated. Modrinth .mrpack installation currently supports Vanilla, Fabric and Quilt packs; Forge/NeoForge packs are rejected before partial installation.
 
 ## Licensing
 
