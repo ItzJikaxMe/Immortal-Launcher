@@ -34,18 +34,21 @@ public class MainActivity extends Activity {
     private View build() {
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
+        root.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         root.setBackgroundColor(BG);
         root.setPadding(dp(14),dp(5),dp(14),dp(8));
         root.addView(header(),new LinearLayout.LayoutParams(-1,dp(58)));
 
         LinearLayout body=new LinearLayout(this);
         body.setOrientation(LinearLayout.HORIZONTAL);
+        body.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,0,1);
         bp.topMargin=dp(5);
         root.addView(body,bp);
 
         navColumn=new LinearLayout(this);
         navColumn.setOrientation(LinearLayout.VERTICAL);
+        navColumn.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         navColumn.setPadding(0,dp(6),dp(12),dp(6));
         body.addView(navColumn,new LinearLayout.LayoutParams(dp(145),-1));
         addNav("▶","Play"); addNav("▦","Mods"); addNav("▰","Resource Pack");
@@ -57,11 +60,13 @@ public class MainActivity extends Activity {
 
         ScrollView scroll=new ScrollView(this);
         scroll.setFillViewport(true);
+        scroll.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,-1,1);
         sp.leftMargin=dp(14);
         body.addView(scroll,sp);
         content=new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
+        content.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         content.setPadding(dp(2),dp(5),dp(2),dp(4));
         scroll.addView(content);
         showPage();
@@ -71,6 +76,7 @@ public class MainActivity extends Activity {
     private View header() {
         LinearLayout h=new LinearLayout(this);
         h.setGravity(Gravity.CENTER_VERTICAL);
+        h.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         LogoView logo=new LogoView();
         h.addView(logo,new LinearLayout.LayoutParams(dp(44),dp(44)));
         LinearLayout brand=new LinearLayout(this);
@@ -137,16 +143,18 @@ public class MainActivity extends Activity {
 
         LinearLayout actions=new LinearLayout(this);
         actions.setGravity(Gravity.CENTER_VERTICAL);
-        TextView play=txt("▶    Play Minecraft",16,BG,true);
-        play.setGravity(Gravity.CENTER);
-        play.setBackground(shape(Color.rgb(190,187,199),24,Color.TRANSPARENT));
-        actions.addView(play,new LinearLayout.LayoutParams(0,dp(52),1));
+        actions.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         TextView version=txt("  Vanilla   ⌄  ",15,TEXT,true);
         version.setGravity(Gravity.CENTER);
         version.setBackground(shape(PANEL2,24,Color.rgb(50,47,59)));
         LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(dp(155),dp(52));
-        vp.leftMargin=dp(10);
         actions.addView(version,vp);
+        TextView play=txt("▶    Play Minecraft",16,BG,true);
+        play.setGravity(Gravity.CENTER);
+        play.setBackground(shape(Color.rgb(190,187,199),24,Color.TRANSPARENT));
+        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(52),1);
+        pp.leftMargin=dp(10);
+        actions.addView(play,pp);
         LinearLayout.LayoutParams actp=new LinearLayout.LayoutParams(-1,-2);
         actp.topMargin=dp(12);
         content.addView(actions,actp);
