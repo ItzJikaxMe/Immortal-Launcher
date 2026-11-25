@@ -109,6 +109,8 @@ public final class MicrosoftLoginActivity extends Activity {
         login.createAccount(new LoginListener() {
             @Override public void onLoginDone(Account account) {
                 try {
+                    account.isMicrosoft = true;
+                    account.save();
                     Accounts.setCurrent(account);
                     getSharedPreferences("immortal_settings", MODE_PRIVATE).edit()
                             .putBoolean("microsoft_signed_in", true)
