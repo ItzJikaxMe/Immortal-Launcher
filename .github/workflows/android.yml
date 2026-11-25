@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: immortal-android-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build Immortal Android APK
