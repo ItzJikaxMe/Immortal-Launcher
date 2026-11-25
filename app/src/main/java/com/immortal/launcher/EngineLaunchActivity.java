@@ -105,12 +105,6 @@ public final class EngineLaunchActivity extends LauncherActivity {
         showStatus("Finishing setup and checking installed components…");
         ProgressKeeper.waitUntilDone(() -> runOnUiThread(() -> {
             if (isFinishing() || isDestroyed()) return;
-            try {
-                ControlLayoutBridge.sync(this);
-            } catch (Exception error) {
-                fail("Could not apply the saved Immortal control layout: " + error.getMessage());
-                return;
-            }
             showStatus("Preparing engine components before launch…");
             waitForEngineAssets();
         }));
@@ -140,6 +134,14 @@ public final class EngineLaunchActivity extends LauncherActivity {
             }
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
+                try {
+                    // Apply the Immortal layout only after the engine's default controlmap
+                    // extraction has completed, preventing a first-launch overwrite race.
+                    ControlLayoutBridge.sync(this);
+                } catch (Exception error) {
+                    fail("Could not apply the saved Immortal control layout: " + error.getMessage());
+                    return;
+                }
                 showStatus("Downloading missing libraries and Android native files…");
                 ExtraCore.setValue(ExtraConstants.LAUNCH_GAME, true);
             });
