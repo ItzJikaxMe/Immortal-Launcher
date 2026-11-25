@@ -501,7 +501,7 @@ public class MainActivity extends Activity {
         settingsSwitch("Force English","force_english",false);
         settingsSection("ANDROID PERMISSIONS","System-level access");
         settingsAction("Microphone permission","Android will request access when a feature requires it.","mic");
-        settingsSwitch("Enable update notifications","Show launcher update notifications when available.","notifications_enabled",true);
+        settingsSwitch("Enable update notifications","notifications_enabled",true);
     }
 
     private void settingsSection(String title,String subtitle) {
