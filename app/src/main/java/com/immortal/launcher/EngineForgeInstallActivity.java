@@ -23,11 +23,13 @@ import git.artdeell.mojo.modding.forge.ForgelikeUtils;
 public final class EngineForgeInstallActivity extends LauncherActivity {
     public static final String EXTRA_GAME_VERSION = "immortal.forge.game";
     public static final String EXTRA_LOADER = "immortal.forge.loader";
+    public static final String EXTRA_REQUESTED_BUILD = "immortal.forge.requested_build";
     public static final String EXTRA_INSTALLED_VERSION = "immortal.forge.installed_version";
 
     private TextView status;
     private String gameVersion;
     private String loader;
+    private String requestedBuild;
     private boolean installerStarted;
     private boolean resultSent;
 
@@ -36,6 +38,7 @@ public final class EngineForgeInstallActivity extends LauncherActivity {
         setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         gameVersion = getIntent().getStringExtra(EXTRA_GAME_VERSION);
         loader = getIntent().getStringExtra(EXTRA_LOADER);
+        requestedBuild = getIntent().getStringExtra(EXTRA_REQUESTED_BUILD);
         showStatus("Preparing " + loader + " installer…");
         if (gameVersion == null || gameVersion.isEmpty()
                 || (!"Forge".equals(loader) && !"NeoForge".equals(loader))) {
@@ -70,6 +73,15 @@ public final class EngineForgeInstallActivity extends LauncherActivity {
                 runOnUiThread(() -> {
                     if (compatible.isEmpty()) {
                         fail("No " + loader + " builds were found for Minecraft " + gameVersion + ".");
+                        return;
+                    }
+                    if (requestedBuild != null && !requestedBuild.isEmpty()) {
+                        if (!compatible.contains(requestedBuild)) {
+                            fail("The modpack requires " + loader + " " + requestedBuild
+                                    + ", but that exact build is not available for " + gameVersion + ".");
+                            return;
+                        }
+                        installSelected(utils, requestedBuild);
                         return;
                     }
                     status.setText("Choose a compatible " + loader + " build for " + gameVersion + ".");
