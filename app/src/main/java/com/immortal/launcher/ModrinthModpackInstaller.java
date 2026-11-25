@@ -43,6 +43,9 @@ public final class ModrinthModpackInstaller {
                 manifest = new JSONObject(readText(in));
             }
             if (manifest.optInt("formatVersion", 0) < 1) throw new IOException("Unsupported Modrinth pack format.");
+            if (!"minecraft".equalsIgnoreCase(manifest.optString("game", "minecraft"))) {
+                throw new IOException("This archive is not a Minecraft modpack.");
+            }
             JSONObject dependencies = manifest.optJSONObject("dependencies");
             if (dependencies == null) throw new IOException("The modpack manifest has no dependencies.");
             String game = dependencies.optString("minecraft", "");
@@ -50,12 +53,12 @@ public final class ModrinthModpackInstaller {
 
             String loader = "Vanilla";
             String loaderVersion = null;
-            if (dependencies.has("fabric")) {
+            if (dependencies.has("fabric-loader") || dependencies.has("fabric")) {
                 loader = "Fabric";
-                loaderVersion = dependencies.optString("fabric", "");
-            } else if (dependencies.has("quilt")) {
+                loaderVersion = dependencies.optString("fabric-loader", dependencies.optString("fabric", ""));
+            } else if (dependencies.has("quilt-loader") || dependencies.has("quilt")) {
                 loader = "Quilt";
-                loaderVersion = dependencies.optString("quilt", "");
+                loaderVersion = dependencies.optString("quilt-loader", dependencies.optString("quilt", ""));
             } else if (dependencies.has("forge")) {
                 loader = "Forge";
                 loaderVersion = dependencies.optString("forge", "");
@@ -167,7 +170,9 @@ public final class ModrinthModpackInstaller {
             if (path.isEmpty()) continue;
             File target = safeTarget(root, path);
             JSONObject hashes = item.optJSONObject("hashes");
-            if (target.isFile() && target.length() == item.optLong("fileSize", -1)) {
+            long expectedSize = item.optLong("fileSize", -1);
+            if (expectedSize < 0) throw new IOException("Invalid file size in modpack manifest: " + path);
+            if (target.isFile() && target.length() == expectedSize) {
                 try {
                     verify(target, hashes);
                     completed++;
@@ -187,6 +192,7 @@ public final class ModrinthModpackInstaller {
                 if (address.isEmpty()) continue;
                 try {
                     download(address, temp);
+                    if (temp.length() != expectedSize) throw new IOException("File size mismatch: " + path);
                     verify(temp, hashes);
                     if (target.exists() && !target.delete()) throw new IOException("Cannot replace " + path);
                     if (!temp.renameTo(target)) throw new IOException("Cannot finalize " + path);
@@ -204,13 +210,16 @@ public final class ModrinthModpackInstaller {
     }
 
     private void verify(File file, JSONObject hashes) throws IOException {
-        if (hashes == null) return;
+        if (hashes == null) throw new IOException("Missing integrity hashes for " + file.getName());
         try {
             String sha1 = hashes.optString("sha1", "");
             String sha512 = hashes.optString("sha512", "");
-            if (!sha1.isEmpty() && !sha1.equalsIgnoreCase(digest(file, "SHA-1")))
+            if (sha1.isEmpty() || sha512.isEmpty()) {
+                throw new IOException("Modrinth requires both SHA-1 and SHA-512 hashes: " + file.getName());
+            }
+            if (!sha1.equalsIgnoreCase(digest(file, "SHA-1")))
                 throw new IOException("SHA-1 mismatch: " + file.getName());
-            if (!sha512.isEmpty() && !sha512.equalsIgnoreCase(digest(file, "SHA-512")))
+            if (!sha512.equalsIgnoreCase(digest(file, "SHA-512")))
                 throw new IOException("SHA-512 mismatch: " + file.getName());
         } catch (IOException error) {
             throw error;
@@ -220,7 +229,16 @@ public final class ModrinthModpackInstaller {
     }
 
     private void download(String address, File target) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
+        URL parsed = new URL(address);
+        String host = parsed.getHost().toLowerCase(Locale.ROOT);
+        if (!"https".equalsIgnoreCase(parsed.getProtocol())
+                || !(host.equals("cdn.modrinth.com")
+                || host.equals("github.com") || host.endsWith(".github.com")
+                || host.equals("raw.githubusercontent.com")
+                || host.equals("gitlab.com") || host.endsWith(".gitlab.com"))) {
+            throw new IOException("Blocked non-approved Modrinth download host: " + host);
+        }
+        HttpURLConnection connection = (HttpURLConnection) parsed.openConnection();
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(120000);
         connection.setInstanceFollowRedirects(true);

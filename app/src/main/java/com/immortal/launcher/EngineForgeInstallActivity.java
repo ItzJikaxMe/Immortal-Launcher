@@ -76,12 +76,22 @@ public final class EngineForgeInstallActivity extends LauncherActivity {
                         return;
                     }
                     if (requestedBuild != null && !requestedBuild.isEmpty()) {
-                        if (!compatible.contains(requestedBuild)) {
+                        String exactMatch = null;
+                        for (String candidate : compatible) {
+                            String shortBuild = candidate.startsWith(gameVersion + "-")
+                                    ? candidate.substring(gameVersion.length() + 1) : candidate;
+                            if (candidate.equals(requestedBuild) || shortBuild.equals(requestedBuild)
+                                    || candidate.endsWith("-" + requestedBuild)) {
+                                exactMatch = candidate;
+                                break;
+                            }
+                        }
+                        if (exactMatch == null) {
                             fail("The modpack requires " + loader + " " + requestedBuild
                                     + ", but that exact build is not available for " + gameVersion + ".");
                             return;
                         }
-                        installSelected(utils, requestedBuild);
+                        installSelected(utils, exactMatch);
                         return;
                     }
                     status.setText("Choose a compatible " + loader + " build for " + gameVersion + ".");
