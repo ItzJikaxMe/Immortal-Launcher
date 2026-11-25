@@ -652,7 +652,19 @@ public class MainActivity extends Activity {
             LinearLayout row=card(); row.setGravity(Gravity.CENTER_VERTICAL);
             TextView name=txt(file.getName(),13,TEXT,true);
             row.addView(name,new LinearLayout.LayoutParams(0,-2,1));
-            TextView remove=txt("REMOVE",10,ACCENT,true); row.addView(remove);
+            if(!"modpacks".equals(folder) && !"skins".equals(folder)) {
+                boolean disabled=file.getName().endsWith(".disabled");
+                TextView toggle=txt(disabled?"ENABLE":"DISABLE",10,ACCENT,true);
+                row.addView(toggle);
+                toggle.setPadding(dp(7),0,dp(7),0);
+                toggle.setOnClickListener(v->{
+                    String nextName=disabled?file.getName().substring(0,file.getName().length()-9):file.getName()+".disabled";
+                    java.io.File next=new java.io.File(file.getParentFile(),nextName);
+                    if(file.renameTo(next)){toast(disabled?"File enabled":"File disabled");showPage();}
+                    else toast("Could not change file state.");
+                });
+            }
+            TextView remove=txt("REMOVE",10,ACCENT,true); remove.setPadding(dp(7),0,0,0); row.addView(remove);
             content.addView(row,margins(-1,dp(44),0,dp(3),0,dp(3)));
             remove.setOnClickListener(v->new android.app.AlertDialog.Builder(this)
                 .setTitle("Remove "+file.getName()+"?")
