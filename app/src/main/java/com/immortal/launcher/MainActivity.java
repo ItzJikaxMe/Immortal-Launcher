@@ -188,7 +188,6 @@ public class MainActivity extends Activity {
         downloadStatus=txt("Choose an installed version or add a new one.",12,MUTED,false);
         content.addView(downloadStatus,margins(-1,-2,0,dp(10),0,0));
     }
-
     private void showAddVersionPage() {
         content.addView(txt("Add Version",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(8)));
         content.addView(txt("Choose an edition to install",13,MUTED,false),margins(-1,-2,dp(5),0,0,dp(10)));
@@ -278,7 +277,11 @@ public class MainActivity extends Activity {
 
     private boolean isVersionInstalled(String id) {
         java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+id);
-        return new java.io.File(dir,id+".jar").exists() && new java.io.File(dir,id+".json").exists();
+        java.io.File profile=new java.io.File(dir,id+".json");
+        if(!profile.exists()) return false;
+        if(new java.io.File(dir,id+".jar").exists()) return true;
+        try { return new String(java.nio.file.Files.readAllBytes(profile.toPath()),"UTF-8").contains("\\"inheritsFrom\\""); }
+        catch(Exception e) { return false; }
     }
 
     private void deleteTree(java.io.File file) {
@@ -364,6 +367,17 @@ public class MainActivity extends Activity {
         content.addView(txt(title,23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(4)));
         content.addView(txt("Files for "+selectedMinecraftVersion+" • stored in the selected instance",12,MUTED,false),
             margins(-1,-2,dp(5),0,0,dp(9)));
+        if(!"skins".equals(folder)) {
+            EditText searchBox=new EditText(this); searchBox.setSingleLine(true);
+            searchBox.setTextColor(TEXT); searchBox.setHintTextColor(MUTED);
+            searchBox.setHint("Search Modrinth…"); searchBox.setTextSize(13);
+            searchBox.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
+            content.addView(searchBox,margins(-1,dp(40),0,0,0,dp(5)));
+            TextView searchButton=txt("Search online",12,TEXT,true); searchButton.setGravity(Gravity.CENTER);
+            searchButton.setBackground(shape(PANEL2,12,Color.rgb(65,61,75)));
+            content.addView(searchButton,margins(dp(130),dp(34),0,0,0,dp(8)));
+            searchButton.setOnClickListener(v->searchModrinth(folder,searchBox.getText().toString().trim()));
+        }
         TextView importButton=txt("+ Import "+(folder.equals("skins")?"PNG skin":"file"),13,BG,true);
         importButton.setGravity(Gravity.CENTER);
         importButton.setBackground(shape(Color.rgb(190,187,199),16,Color.TRANSPARENT));
@@ -377,8 +391,7 @@ public class MainActivity extends Activity {
         java.io.File[] files=base.listFiles();
         if(files==null || files.length==0) {
             LinearLayout empty=card(); empty.setGravity(Gravity.CENTER);
-            empty.addView(txt("No files yet. Import a file to add it here.",13,MUTED,false));
-            content.addView(empty,new LinearLayout.LayoutParams(-1,dp(90)));
+            empty.addView(txt("No files yet. Import a file to add it here.",13,MUTED,false));            content.addView(empty,new LinearLayout.LayoutParams(-1,dp(90)));
             return;
         }
         java.util.Arrays.sort(files,(a,b)->a.getName().compareToIgnoreCase(b.getName()));
@@ -483,6 +496,42 @@ public class MainActivity extends Activity {
         content.addView(note,margins(-1,-2,0,dp(8),0,0));
     }
 
+    private void searchModrinth(String folder,String query) {
+        if(query.isEmpty()){toast("Enter a search term first.");return;}
+        String projectType=folder.equals("mods")?"mod":folder.equals("resourcepacks")?"resourcepack":folder.equals("shaderpacks")?"shader":"modpack";
+        String game=prefs.getString("base_game_version",selectedMinecraftVersion);
+        toast("Searching Modrinth…");
+        new Thread(()->{
+            try {
+                ModrinthClient client=new ModrinthClient(this);
+                org.json.JSONArray hits=client.search(projectType,query,game,selectedLoader);
+                java.util.ArrayList<org.json.JSONObject> projects=new java.util.ArrayList<>();
+                java.util.ArrayList<String> labels=new java.util.ArrayList<>();
+                for(int i=0;i<hits.length();i++){
+                    org.json.JSONObject hit=hits.getJSONObject(i);projects.add(hit);
+                    labels.add(hit.optString("title",hit.optString("slug"))+"  •  "+hit.optString("description",""));
+                }
+                runOnUiThread(()->{
+                    if(projects.isEmpty()){toast("No matching projects found for "+game+".");return;}
+                    new android.app.AlertDialog.Builder(this).setTitle("Modrinth results • "+game)
+                        .setItems(labels.toArray(new String[0]),(dialog,which)->downloadModrinthProject(client,projects.get(which),folder,game))
+                        .setNegativeButton("Cancel",null).show();
+                });
+            }catch(Exception e){runOnUiThread(()->toast("Modrinth search failed: "+e.getMessage()));}
+        }).start();
+    }
+
+    private void downloadModrinthProject(ModrinthClient client,org.json.JSONObject project,String folder,String game) {
+        new Thread(()->{
+            try{
+                org.json.JSONObject version=client.versions(project.getString("project_id"),game,selectedLoader);
+                String directory=selectedMinecraftVersion+"/"+folder;
+                java.io.File file=client.downloadPrimary(version,directory);
+                runOnUiThread(()->{toast("Downloaded "+file.getName());showPage();});
+            }catch(Exception e){runOnUiThread(()->toast("Download failed: "+e.getMessage()));}
+        }).start();
+    }
+
     private void loadVersionCatalog() {
         downloadStatus.setText("Loading official Minecraft version list...");
         new Thread(() -> {
@@ -567,8 +616,7 @@ public class MainActivity extends Activity {
             } catch(Exception e) {
                 runOnUiThread(()->downloadStatus.setText(selectedLoader+" compatibility could not be checked for this version."));
             }
-        }).start();
-    }
+        }).start();    }
 
     private void downloadBaseVersion() {
         final String game=selectedMinecraftVersion;
@@ -590,7 +638,7 @@ public class MainActivity extends Activity {
                 final String finalId=installedId;
                 runOnUiThread(() -> {
                     selectedMinecraftVersion=finalId;
-                    prefs.edit().putString("selected_version",finalId).putString("selected_loader",loader).apply();
+                    prefs.edit().putString("selected_version",finalId).putString("selected_loader",loader).putString("base_game_version",game).apply();
                     if(downloadStatus!=null) downloadStatus.setText(finalId+" installed. Android Java runtime and graphics bridge are still required to launch.");
                     toast(finalId+" installed");
                     if("Versions".equals(selected)) showPage();
