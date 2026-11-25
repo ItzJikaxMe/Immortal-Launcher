@@ -958,13 +958,15 @@ public class MainActivity extends Activity {
             showPage();
             return;
         }
+        final java.io.File archiveToInstall = archive;
+        final ModrinthModpackInstaller.PackInfo infoToInstall = info;
         new Thread(() -> {
             try {
                 ModrinthModpackInstaller installer = new ModrinthModpackInstaller(this,
                     message -> runOnUiThread(() -> {
                         if (downloadStatus != null) downloadStatus.setText(message);
                     }));
-                ModrinthModpackInstaller.Result result = installer.installPackFiles(archive, info, installedVersionId);
+                ModrinthModpackInstaller.Result result = installer.installPackFiles(archiveToInstall, infoToInstall, installedVersionId);
                 runOnUiThread(() -> applyInstalledModpack(result));
             } catch (Exception error) {
                 runOnUiThread(() -> {
