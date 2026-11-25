@@ -219,7 +219,12 @@ public class MainActivity extends Activity {
             if(selectedMinecraftVersion.isEmpty()){toast("Choose a Minecraft version first.");return;}
             if("Fabric".equals(selectedLoader)||"Quilt".equals(selectedLoader)) chooseLoaderBuildAndInstall();
             else if("Vanilla".equals(selectedLoader)) showInstallConfirmation();
-            else toast(selectedLoader+" installer is not integrated yet. I won't create a fake installed profile.");
+            else if("Forge".equals(selectedLoader)||"NeoForge".equals(selectedLoader)) {
+                Intent intent=new Intent(this,EngineForgeInstallActivity.class);
+                intent.putExtra(EngineForgeInstallActivity.EXTRA_GAME_VERSION,selectedMinecraftVersion);
+                intent.putExtra(EngineForgeInstallActivity.EXTRA_LOADER,selectedLoader);
+                startActivityForResult(intent,202);
+            }
         });
         downloadStatus=txt("Choose the Minecraft version first, then choose its loader.",12,MUTED,false);
         content.addView(downloadStatus,margins(-1,-2,dp(5),dp(4),0,0));
@@ -659,6 +664,20 @@ public class MainActivity extends Activity {
         super.onActivityResult(requestCode,resultCode,data);
         if(requestCode==201) {
             if(resultCode==RESULT_OK) toast("Microsoft account connected.");
+            showPage();
+            return;
+        }
+        if(requestCode==202) {
+            if(resultCode==RESULT_OK && data!=null) {
+                String installed=data.getStringExtra(EngineForgeInstallActivity.EXTRA_INSTALLED_VERSION);
+                if(installed!=null && !installed.isEmpty()) {
+                    selectedMinecraftVersion=installed;
+                    prefs.edit().putString("selected_version",installed)
+                            .putString("base_game_version",prefs.getString("base_game_version",installed))
+                            .putString("selected_loader",selectedLoader).apply();
+                    toast(selectedLoader+" installed: "+installed);
+                }
+            }
             showPage();
             return;
         }
