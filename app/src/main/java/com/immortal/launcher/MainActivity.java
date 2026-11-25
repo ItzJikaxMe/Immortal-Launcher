@@ -43,6 +43,8 @@ public class MainActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(0);
         setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         prefs=getSharedPreferences("immortal_settings",MODE_PRIVATE);
+        git.artdeell.mojo.prefs.LauncherPreferences.DEFAULT_PREF =
+                androidx.preference.PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         selectedMinecraftVersion=prefs.getString("selected_version","");
         selectedLoader=prefs.getString("selected_loader","Vanilla");
         setContentView(build());
@@ -108,7 +110,7 @@ public class MainActivity extends Activity {
         brandp.leftMargin=dp(9);
         h.addView(brand,brandp);
 
-        TextView version=txt("0.1.0",12,MUTED,true);
+        TextView version=txt("0.2.0",12,MUTED,true);
         LinearLayout.LayoutParams verp=new LinearLayout.LayoutParams(-2,-2);
         verp.leftMargin=dp(9);
         h.addView(version,verp);
