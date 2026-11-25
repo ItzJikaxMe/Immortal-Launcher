@@ -16,6 +16,10 @@ import android.widget.ImageView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.SeekBar;
+import android.widget.EditText;
+import android.widget.Button;
+import android.content.SharedPreferences;
 
 public class MainActivity extends Activity {
     private static final int BG=Color.rgb(12,12,16), PANEL=Color.rgb(27,26,33),
@@ -26,6 +30,9 @@ public class MainActivity extends Activity {
     private String selectedMinecraftVersion="1.21.11";
     private String selectedLoader="Vanilla";
     private TextView versionButton, downloadStatus;
+    private SharedPreferences prefs;
+    private java.util.ArrayList<String> catalogIds = new java.util.ArrayList<>();
+    private java.util.ArrayList<String> catalogLabels = new java.util.ArrayList<>();
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -33,6 +40,9 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(BG);
         getWindow().getDecorView().setSystemUiVisibility(0);
         setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        prefs=getSharedPreferences("immortal_settings",MODE_PRIVATE);
+        selectedMinecraftVersion=prefs.getString("selected_version","1.21.11");
+        selectedLoader=prefs.getString("selected_loader","Vanilla");
         setContentView(build());
     }
 
@@ -57,7 +67,7 @@ public class MainActivity extends Activity {
         navColumn.setPadding(0,dp(6),dp(12),dp(6));
         body.addView(navColumn,new LinearLayout.LayoutParams(dp(145),-1));
         addNav("▶","Play"); addNav("▦","Mods"); addNav("▰","Resource Pack");
-        addNav("☼","Shaders"); addNav("▱","Installed"); addNav("☷","Settings"); addNav("♟","Skins");
+        addNav("☼","Shaders"); addNav("▱","Versions"); addNav("☷","Settings"); addNav("♟","Skins");
 
         View divider=new View(this);
         divider.setBackgroundColor(Color.rgb(49,47,57));
@@ -123,56 +133,191 @@ public class MainActivity extends Activity {
 
     private void showPage() {
         content.removeAllViews();
+        if("Settings".equals(selected)) { showSettingsPage(); return; }
+        if("Versions".equals(selected)) { showInstalledVersionsPage(); return; }
+        if("Add Version".equals(selected)) { showAddVersionPage(); return; }
         if(!"Play".equals(selected)) {
             content.addView(txt(selected,24,TEXT,true),margins(-1,-2,dp(10),dp(12),0,dp(10)));
-            LinearLayout panel=card();
-            panel.setGravity(Gravity.CENTER);
+            LinearLayout panel=card(); panel.setGravity(Gravity.CENTER);
             panel.addView(txt("Your "+selected+" will appear here.",14,MUTED,false));
             content.addView(panel,new LinearLayout.LayoutParams(-1,dp(170)));
             return;
         }
         FrameLayout hero=new FrameLayout(this);
         hero.setBackground(shape(Color.rgb(20,19,27),22,Color.rgb(53,51,62)));
-        EndermanArt art=new EndermanArt();
-        hero.addView(art,new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout heroText=new LinearLayout(this);
-        heroText.setOrientation(LinearLayout.VERTICAL);
-        heroText.setGravity(Gravity.CENTER_VERTICAL);
-        heroText.setPadding(dp(22),dp(15),dp(22),dp(15));
+        EndermanArt art=new EndermanArt(); hero.addView(art,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout heroText=new LinearLayout(this); heroText.setOrientation(LinearLayout.VERTICAL);
+        heroText.setGravity(Gravity.CENTER_VERTICAL); heroText.setPadding(dp(22),dp(15),dp(22),dp(15));
         heroText.addView(txt("Ready to play",27,TEXT,true));
-        heroText.addView(txt("Minecraft Java  •  Vanilla / compatibility",14,MUTED,false),
+        heroText.addView(txt("Minecraft Java  •  "+selectedMinecraftVersion+" / "+selectedLoader,14,MUTED,false),
             margins(-1,-2,0,dp(5),0,0));
         hero.addView(heroText,new FrameLayout.LayoutParams(-1,-1));
         content.addView(hero,new LinearLayout.LayoutParams(-1,dp(174)));
 
         LinearLayout actions=new LinearLayout(this);
-        actions.setGravity(Gravity.CENTER_VERTICAL);
-        actions.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        TextView play=txt("▶  Play Game",14,BG,true);
-        play.setGravity(Gravity.CENTER);
+        actions.setGravity(Gravity.CENTER_VERTICAL); actions.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        TextView play=txt("▶  Play Game",14,BG,true); play.setGravity(Gravity.CENTER);
         play.setBackground(shape(Color.rgb(190,187,199),22,Color.TRANSPARENT));
-        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(dp(132),dp(42));
+        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(42),1);
         actions.addView(play,pp);
-        versionButton=txt("  "+selectedMinecraftVersion+" • "+selectedLoader+"  ⌄  ",14,TEXT,true);
-        versionButton.setGravity(Gravity.CENTER);
-        versionButton.setSingleLine(true);
-        versionButton.setBackground(shape(PANEL2,22,Color.rgb(50,47,59)));
-        LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(0,dp(42),1);
-        vp.leftMargin=dp(10);
-        actions.addView(versionButton,vp);
-        LinearLayout.LayoutParams actp=new LinearLayout.LayoutParams(-1,-2);
-        actp.topMargin=dp(12);
-        content.addView(actions,actp);
-        play.setOnClickListener(v->toast("Game launching will be connected after the runtime setup."));
-        versionButton.setOnClickListener(v->loadVersionCatalog());
+        TextView add=txt("+ Add Version",12,TEXT,true); add.setGravity(Gravity.CENTER);
+        add.setBackground(shape(PANEL2,18,Color.rgb(55,51,65)));
+        LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(dp(112),dp(38));
+        ap.leftMargin=dp(9); actions.addView(add,ap);
+        content.addView(actions,margins(-1,-2,0,dp(12),0,0));
+        play.setOnClickListener(v->{
+            if(!isVersionInstalled(selectedMinecraftVersion)) {
+                toast("Install this version first from Add Version.");
+                return;
+            }
+            toast("Version selected. Full Java runtime and game launch integration is the next required step.");
+        });
+        add.setOnClickListener(v->open("Add Version"));
 
-        downloadStatus=txt("Choose a Minecraft version and loader.",13,MUTED,false);
-        content.addView(downloadStatus,margins(-1,-2,0,dp(12),0,0));
-        TextView download=txt("↓  Download selected version",14,TEXT,true);
-        download.setGravity(Gravity.CENTER);
-        download.setBackground(shape(PANEL2,18,Color.rgb(55,51,65)));
-        content.addView(download,margins(-1,dp(40),0,dp(8),0,0));
-        download.setOnClickListener(v->downloadBaseVersion());
+        versionButton=txt("Installed version: "+selectedMinecraftVersion+"  ⌄",13,TEXT,true);
+        versionButton.setGravity(Gravity.CENTER_VERTICAL); versionButton.setPadding(dp(13),0,dp(12),0);
+        versionButton.setBackground(shape(PANEL2,18,Color.rgb(50,47,59)));
+        content.addView(versionButton,margins(-1,dp(38),0,dp(9),0,0));
+        versionButton.setOnClickListener(v->showInstalledVersionPicker());
+
+        downloadStatus=txt("Choose an installed version or add a new one.",12,MUTED,false);
+        content.addView(downloadStatus,margins(-1,-2,0,dp(10),0,0));
+    }
+
+    private void showAddVersionPage() {
+        content.addView(txt("Add Version",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(8)));
+        content.addView(txt("Choose an edition to install",13,MUTED,false),margins(-1,-2,dp(5),0,0,dp(10)));
+        addVersionAction("CREATE VANILLA INSTANCE","Vanilla");
+        addVersionAction("CREATE FABRIC INSTANCE","Fabric");
+        addVersionAction("CREATE QUILT INSTANCE","Quilt");
+        addVersionAction("CREATE LEGACY FABRIC INSTANCE","Legacy Fabric");
+        addVersionAction("CREATE FORGE INSTANCE","Forge");
+        addVersionAction("CREATE NEOFORGE INSTANCE","NeoForge");
+        addVersionAction("CREATE MODPACK INSTANCE","Modpack");
+        TextView list=txt("Browse official Minecraft versions  →",13,ACCENT,true);
+        list.setPadding(dp(8),dp(10),dp(8),dp(10)); content.addView(list);
+        list.setOnClickListener(v->loadVersionCatalog());
+        downloadStatus=txt("Select a loader, then choose a Minecraft version.",12,MUTED,false);
+        content.addView(downloadStatus,margins(-1,-2,dp(8),dp(4),0,0));
+    }
+
+    private void addVersionAction(String label,String loader) {
+        TextView button=txt(label,12,TEXT,true); button.setGravity(Gravity.CENTER);
+        button.setBackground(shape(PANEL2,12,Color.rgb(65,61,75)));
+        LinearLayout.LayoutParams p=margins(-1,dp(38),dp(8),dp(4),dp(8),dp(4));
+        content.addView(button,p);
+        button.setOnClickListener(v->{selectedLoader=loader;loadVersionCatalog();});
+    }
+
+    private void showInstalledVersionPicker() {
+        java.util.ArrayList<String> installed=getInstalledVersions();
+        if(installed.isEmpty()) { toast("No installed versions yet. Tap Add Version."); return; }
+        new android.app.AlertDialog.Builder(this).setTitle("Choose installed version")
+            .setItems(installed.toArray(new String[0]),(d,which)->{
+                selectedMinecraftVersion=installed.get(which);
+                prefs.edit().putString("selected_version",selectedMinecraftVersion).apply();
+                setContentView(build());
+            }).setNegativeButton("Cancel",null).show();
+    }
+
+    private void showInstalledVersionsPage() {
+        content.addView(txt("Installed Versions",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(8)));
+        TextView add=txt("+ Add Version",13,BG,true); add.setGravity(Gravity.CENTER);
+        add.setBackground(shape(Color.rgb(190,187,199),16,Color.TRANSPARENT));
+        content.addView(add,margins(dp(130),dp(36),0,0,0,dp(10)));
+        add.setOnClickListener(v->open("Add Version"));
+        java.util.ArrayList<String> installed=getInstalledVersions();
+        if(installed.isEmpty()) {
+            LinearLayout empty=card(); empty.setGravity(Gravity.CENTER);
+            empty.addView(txt("No versions installed yet.",14,MUTED,false));
+            content.addView(empty,new LinearLayout.LayoutParams(-1,dp(100))); return;
+        }
+        for(String id:installed) {
+            LinearLayout row=card(); row.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams rp=margins(-1,dp(52),0,dp(4),0,dp(4));
+            TextView name=txt(id+"   •   "+(id.equals(selectedMinecraftVersion)?"Selected":"Minecraft Java"),14,TEXT,true);
+            row.addView(name,new LinearLayout.LayoutParams(0,-2,1));
+            TextView use=txt("SELECT",11,ACCENT,true); row.addView(use);
+            content.addView(row,rp);
+            row.setOnClickListener(v->{
+                selectedMinecraftVersion=id; prefs.edit().putString("selected_version",id).apply();
+                setContentView(build()); toast(id+" selected");
+            });
+            row.setOnLongClickListener(v->{
+                new android.app.AlertDialog.Builder(this).setTitle("Remove "+id+"?")
+                    .setMessage("Delete this installed version's files?")
+                    .setNegativeButton("Cancel",null).setPositiveButton("Delete",(d,w)->{
+                        java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+id);
+                        deleteTree(dir); showPage();
+                    }).show(); return true;
+            });
+        }
+    }
+
+    private java.util.ArrayList<String> getInstalledVersions() {
+        java.util.ArrayList<String> out=new java.util.ArrayList<>();
+        java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions");
+        java.io.File[] files=dir.listFiles();
+        if(files!=null) for(java.io.File f:files)
+            if(f.isDirectory() && new java.io.File(f,f.getName()+".jar").exists()
+                && new java.io.File(f,f.getName()+".json").exists()) out.add(f.getName());
+        java.util.Collections.sort(out); return out;
+    }
+
+    private boolean isVersionInstalled(String id) {
+        java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+id);
+        return new java.io.File(dir,id+".jar").exists() && new java.io.File(dir,id+".json").exists();
+    }
+
+    private void deleteTree(java.io.File file) {
+        if(file==null || !file.exists()) return;
+        java.io.File[] children=file.listFiles();
+        if(children!=null) for(java.io.File child:children) deleteTree(child);
+        file.delete();
+    }
+
+    private void showSettingsPage() {
+        content.addView(txt("Launcher Settings",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(10)));
+        content.addView(txt("Memory Allocation",15,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(2)));
+        int max=Math.max(1024,(int)(Runtime.getRuntime().maxMemory()/1048576L));
+        int memory=prefs.getInt("ram_mb",Math.min(2048,Math.max(512,max/2)));
+        TextView ramValue=txt(memory+" MB",13,ACCENT,true);
+        content.addView(ramValue,margins(-1,-2,dp(5),0,0,0));
+        SeekBar ram=new SeekBar(this); ram.setMax(8192-512); ram.setProgress(Math.max(0,Math.min(8192-512,memory-512)));
+        content.addView(ram,margins(-1,dp(34),0,0,0,dp(8)));
+        ram.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onProgressChanged(SeekBar b,int value,boolean user){int mb=512+value;ramValue.setText(mb+" MB");}
+            public void onStartTrackingTouch(SeekBar b){}
+            public void onStopTrackingTouch(SeekBar b){prefs.edit().putInt("ram_mb",512+b.getProgress()).apply();}
+        });
+        settingsText("Java Runtime", "Select a Java runtime installed in Immortal's runtime folder", "java_runtime");
+        settingsText("JVM Arguments", "-Xmx is managed by the RAM slider; add other JVM flags here", "jvm_args");
+        settingsText("Game Resolution", "Default / device resolution", "resolution");
+        settingsSwitch("Enable VSync","vsync",true);
+        settingsSwitch("Show FPS","show_fps",false);
+        settingsSwitch("Fullscreen","fullscreen",true);
+        settingsSwitch("Use custom controls","custom_controls",false);
+        settingsSwitch("Keep launcher logs","logs",true);
+        TextView note=txt("Java runtimes are selected from runtimes installed inside the app. Runtime download/installation and applying JVM settings to the game process are not connected yet.",11,MUTED,false);
+        content.addView(note,margins(-1,-2,dp(5),dp(12),dp(5),dp(8)));
+    }
+
+    private void settingsText(String title,String hint,String key) {
+        content.addView(txt(title,14,TEXT,true),margins(-1,-2,dp(5),dp(7),0,dp(3)));
+        EditText input=new EditText(this); input.setTextSize(12); input.setTextColor(TEXT);
+        input.setHintTextColor(MUTED); input.setSingleLine(false); input.setHint(hint);
+        input.setText(prefs.getString(key,""));
+        input.setPadding(dp(10),dp(5),dp(10),dp(5)); input.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
+        content.addView(input,margins(-1,dp(42),0,0,0,dp(3)));
+        input.setOnFocusChangeListener((v,has)->{if(!has)prefs.edit().putString(key,input.getText().toString()).apply();});
+    }
+
+    private void settingsSwitch(String title,String key,boolean def) {
+        android.widget.Switch sw=new android.widget.Switch(this); sw.setText(title);
+        sw.setTextColor(TEXT); sw.setTextSize(13); sw.setPadding(dp(5),0,dp(5),0);
+        sw.setChecked(prefs.getBoolean(key,def));
+        content.addView(sw,margins(-1,dp(42),0,dp(1),0,0));
+        sw.setOnCheckedChangeListener((b,checked)->prefs.edit().putBoolean(key,checked).apply());
     }
 
     private void loadVersionCatalog() {
@@ -192,15 +337,19 @@ public class MainActivity extends Activity {
                         labels.add(id+(type.equals("release")?"  •  Release":type.equals("old_beta")?"  •  Old Beta":"  •  Old Alpha"));
                     }
                 }
+                catalogIds=ids; catalogLabels=labels;
                 runOnUiThread(() -> {
                     String[] choices=labels.toArray(new String[0]);
                     new android.app.AlertDialog.Builder(this)
-                        .setTitle("Minecraft Java versions (1.0 – 26.3)")
+                        .setTitle("Minecraft Java versions")
                         .setItems(choices,(d,which)->{
                             selectedMinecraftVersion=ids.get(which);
-                            chooseLoaderForVersion();
+                            prefs.edit().putString("selected_version",selectedMinecraftVersion).putString("selected_loader",selectedLoader).apply();
+                            if(downloadStatus!=null) downloadStatus.setText(selectedMinecraftVersion+" selected • "+selectedLoader);
+                            if("Play".equals(selected)) setContentView(build());
+                            else showInstallConfirmation();
                         }).setNegativeButton("Cancel",null).show();
-                    downloadStatus.setText(ids.size()+" official releases and legacy versions loaded.");
+                    if(downloadStatus!=null) downloadStatus.setText(ids.size()+" official releases and legacy versions loaded.");
                 });
             } catch(Exception e) {
                 runOnUiThread(()->downloadStatus.setText("Could not load versions. Check your internet connection."));
@@ -208,7 +357,7 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    private void chooseLoaderForVersion() {
+    private void showInstallConfirmation() {\n        new android.app.AlertDialog.Builder(this).setTitle("Install "+selectedMinecraftVersion+" • "+selectedLoader)\n            .setMessage("Install the official game version files now?")\n            .setNegativeButton("Cancel",null).setPositiveButton("Install",(d,w)->downloadBaseVersion()).show();\n    }\n\n    private void chooseLoaderForVersion() {
         final String[] loaders={"Vanilla","Fabric","Forge","NeoForge","Quilt"};
         new android.app.AlertDialog.Builder(this)
             .setTitle("Loader for Minecraft "+selectedMinecraftVersion)
@@ -255,7 +404,7 @@ public class MainActivity extends Activity {
 
     private void downloadBaseVersion() {
         final String game=selectedMinecraftVersion;
-        downloadStatus.setText("Preparing Minecraft "+game+" files...");
+        if(downloadStatus!=null) downloadStatus.setText("Preparing Minecraft "+game+" files...");
         new Thread(()->{
             try {
                 String manifest=httpGet("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json");
@@ -273,9 +422,9 @@ public class MainActivity extends Activity {
                 org.json.JSONObject versionJson=new org.json.JSONObject(metadata);
                 org.json.JSONObject client=versionJson.getJSONObject("downloads").getJSONObject("client");
                 downloadFile(client.getString("url"),new java.io.File(base,game+".jar"));
-                runOnUiThread(()->downloadStatus.setText("Downloaded "+game+" metadata and client JAR. Libraries, assets, runtime and "+selectedLoader+" profile are still required before launch."));
+                runOnUiThread(()->{if(downloadStatus!=null) downloadStatus.setText("Downloaded "+game+" metadata and client JAR. Libraries, assets, runtime and "+selectedLoader+" profile are still required before launch."); toast("Base files downloaded for "+game);});
             } catch(Exception e) {
-                runOnUiThread(()->downloadStatus.setText("Download failed: "+e.getMessage()));
+                runOnUiThread(()->{if(downloadStatus!=null) downloadStatus.setText("Download failed: "+e.getMessage()); toast("Download failed: "+e.getMessage());});
             }
         }).start();
     }
