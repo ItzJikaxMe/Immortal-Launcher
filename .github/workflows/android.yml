@@ -1,9 +1,10 @@
-name: Android APK Build
+name: Immortal Launcher Android Build
 
 on:
   push:
     branches:
       - main
+      - mojo-engine-integration
   workflow_dispatch:
 
 permissions:
@@ -11,11 +12,13 @@ permissions:
 
 jobs:
   build:
-    name: Build debug APK
-    runs-on: ubuntu-latest
+    name: Build Immortal Launcher (Mojo engine)
+    runs-on: ubuntu-22.04
     steps:
-      - name: Checkout
+      - name: Checkout Immortal and Mojo sources
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -26,23 +29,46 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.11.1"
+          gradle-version: "8.14.5"
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: "platform-tools"
 
-      - name: Install Android 35
-        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Install Android SDK and NDK
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
 
-      - name: Build APK
-        run: gradle --no-daemon assembleDebug
+      - name: Apply Immortal app icon
+        run: |
+          mkdir -p mojo/app_mojo/src/main/res/drawable-nodpi
+          cp app/src/main/res/drawable-nodpi/immortal_logo.webp mojo/app_mojo/src/main/res/drawable-nodpi/
+          mkdir -p mojo/app_mojo/src/main/res/mipmap-anydpi-v26
+          cp app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml mojo/app_mojo/src/main/res/mipmap-anydpi-v26/
+          cp app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml mojo/app_mojo/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+          mkdir -p mojo/app_mojo/src/main/res/values
+          cp app/src/main/res/values/immortal_icon.xml mojo/app_mojo/src/main/res/values/
 
-      - name: Upload APK
+      - name: Build full-runtime debug APK
+        run: gradle -p mojo --no-daemon :app_mojo:assembleFullDebug
+
+      - name: Upload full-runtime APK
         uses: actions/upload-artifact@v4
         with:
-          name: Immortal-Launcher-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: Immortal-Launcher-full-runtime
+          path: mojo/app_mojo/build/outputs/apk/full/debug/app_mojo-full-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Build no-runtime debug APK
+        run: gradle -p mojo --no-daemon :app_mojo:assembleNoruntimeDebug
+
+      - name: Upload no-runtime APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Immortal-Launcher-no-runtime
+          path: mojo/app_mojo/build/outputs/apk/noruntime/debug/app_mojo-noruntime-debug.apk
           if-no-files-found: error
           retention-days: 14
