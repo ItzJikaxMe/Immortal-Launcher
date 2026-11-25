@@ -361,6 +361,7 @@ public class MainActivity extends Activity {
             prefs.getInt("button_scale",100),"%");
         settingsSlider("Virtual mouse speed","mouse_speed",50,200,10,
             prefs.getInt("mouse_speed",100),"%");
+        addSettingsNote("Touch and mouse values are saved locally. They will control in-game input after the game input bridge is added.");
 
         settingsSection("LAUNCHER","Interface and diagnostics");
         settingsSwitch("Show FPS overlay","show_fps",false);
@@ -433,20 +434,22 @@ public class MainActivity extends Activity {
     private void chooseJavaRuntime(TextView view) {
         java.io.File root=new java.io.File(getFilesDir(),"runtimes");
         java.util.ArrayList<String> names=new java.util.ArrayList<>();
+        names.add("Auto");
         java.io.File[] dirs=root.listFiles();
-        if(dirs!=null) for(java.io.File d:dirs) if(d.isDirectory()) names.add(d.getName());
-        if(names.isEmpty()) {
-            new android.app.AlertDialog.Builder(this).setTitle("Java Runtime")
-                .setMessage("No Java runtimes are installed yet. Immortal needs an Android-compatible Java runtime before Minecraft can launch.")
-                .setPositiveButton("OK",null).show(); return;
+        if(dirs!=null) {
+            java.util.Arrays.sort(dirs,(a,b)->a.getName().compareToIgnoreCase(b.getName()));
+            for(java.io.File d:dirs) if(d.isDirectory()) names.add(d.getName());
         }
-        names.add(0,"Auto");
         new android.app.AlertDialog.Builder(this).setTitle("Choose Java Runtime")
             .setItems(names.toArray(new String[0]),(d,which)->{
-                String value=names.get(which); prefs.edit().putString("java_runtime",value).apply();
+                String value=names.get(which);
+                prefs.edit().putString("java_runtime",value).apply();
                 view.setText("Java Runtime  •  "+value+"  ⌄");
+                if("Auto".equals(value) && names.size()==1)
+                    toast("No compatible runtime is installed yet.");
             }).setNegativeButton("Cancel",null).show();
     }
+
     private void settingsText(String title,String hint,String key) {
         content.addView(txt(title,14,TEXT,true),margins(-1,-2,dp(5),dp(7),0,dp(3)));
         EditText input=new EditText(this); input.setTextSize(12); input.setTextColor(TEXT);
