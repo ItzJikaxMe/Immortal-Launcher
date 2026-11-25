@@ -13,6 +13,7 @@ import java.util.List;
 
 import git.artdeell.mojo.LauncherActivity;
 import git.artdeell.mojo.tasks.AsyncAssetManager;
+import git.artdeell.mojo.progresskeeper.ProgressKeeper;
 import git.artdeell.mojo.instances.Instance;
 import git.artdeell.mojo.instances.InstanceInstaller;
 import git.artdeell.mojo.instances.Instances;
@@ -93,6 +94,11 @@ public final class EngineForgeInstallActivity extends LauncherActivity {
                 new MinecraftInstaller(this, message -> runOnUiThread(() -> status.setText(message)))
                         .install(gameVersion);
                 AsyncAssetManager.unpackComponents(getApplicationContext());
+                java.util.concurrent.CountDownLatch componentsReady = new java.util.concurrent.CountDownLatch(1);
+                ProgressKeeper.waitUntilDone(componentsReady::countDown);
+                if (!componentsReady.await(180, java.util.concurrent.TimeUnit.SECONDS)) {
+                    throw new java.io.IOException("Timed out while preparing Forge/NeoForge installer components.");
+                }
                 status.post(() -> status.setText("Preparing official " + loader + " installer…"));
 
                 InstanceInstaller installer = utils.createInstaller(fullVersion);
