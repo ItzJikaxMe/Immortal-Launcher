@@ -80,13 +80,9 @@ public class MainActivity extends Activity {
         h.setGravity(Gravity.CENTER_VERTICAL);
         h.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
 
-        ImageView logo=new ImageView(this);
-        logo.setImageResource(R.drawable.immortal_logo);
-        logo.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        logo.setAdjustViewBounds(false);
-        logo.setPadding(0,0,0,0);
-        logo.setBackgroundColor(Color.TRANSPARENT);
-        logo.setContentDescription("Immortal Launcher logo");
+        // Use the standalone I mark inside the launcher; keep the full app icon separate.
+        LogoView logo=new LogoView();
+        logo.setContentDescription("Immortal I logo");
         LinearLayout.LayoutParams logoParams=new LinearLayout.LayoutParams(dp(38),dp(38));
         logoParams.gravity=Gravity.CENTER_VERTICAL;
         h.addView(logo,logoParams);
