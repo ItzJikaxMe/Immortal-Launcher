@@ -3,6 +3,7 @@ package com.immortal.launcher;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.DisplayMetrics;
+import android.view.KeyEvent;
 import androidx.preference.PreferenceManager;
 import git.artdeell.mojo.prefs.LauncherPreferences;
 import org.json.JSONArray;
@@ -102,16 +103,17 @@ public final class ControlLayoutBridge {
 
     private static int keyCode(String label) {
         switch (label.toUpperCase(java.util.Locale.ROOT)) {
-            case "JUMP": return 32;
-            case "SNEAK": return 340;
-            case "ATTACK": return -3;
-            case "USE": return -4;
-            case "INVENTORY": return 69;
-            case "CHAT": return 84;
-            case "PAUSE": return 256;
-            case "SPRINT": return 341;
-            case "DROP": return 81;
-            case "SWAP HAND": return 70;
+            // ControlData v9 stores Android KeyEvent keycodes, not GLFW keycodes.
+            case "JUMP": return KeyEvent.KEYCODE_SPACE;
+            case "SNEAK": return KeyEvent.KEYCODE_SHIFT_LEFT;
+            case "ATTACK": return -3; // ControlData.SPECIALBTN_MOUSEPRI
+            case "USE": return -4;    // ControlData.SPECIALBTN_MOUSESEC
+            case "INVENTORY": return KeyEvent.KEYCODE_E;
+            case "CHAT": return KeyEvent.KEYCODE_T;
+            case "PAUSE": return KeyEvent.KEYCODE_ESCAPE;
+            case "SPRINT": return KeyEvent.KEYCODE_CTRL_LEFT;
+            case "DROP": return KeyEvent.KEYCODE_Q;
+            case "SWAP HAND": return KeyEvent.KEYCODE_F;
             default: return 0;
         }
     }
