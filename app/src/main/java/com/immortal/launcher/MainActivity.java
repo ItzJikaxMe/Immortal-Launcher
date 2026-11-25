@@ -23,6 +23,9 @@ public class MainActivity extends Activity {
         MUTED=Color.rgb(157,154,170), ACCENT=Color.rgb(151,111,235);
     private LinearLayout content, navColumn;
     private String selected="Play";
+    private String selectedMinecraftVersion="1.21.11";
+    private String selectedLoader="Vanilla";
+    private TextView versionButton, downloadStatus;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -150,35 +153,154 @@ public class MainActivity extends Activity {
         play.setBackground(shape(Color.rgb(190,187,199),22,Color.TRANSPARENT));
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(dp(132),dp(42));
         actions.addView(play,pp);
-        TextView version=txt("  Vanilla   ⌄  ",15,TEXT,true);
-        version.setGravity(Gravity.CENTER);
-        version.setBackground(shape(PANEL2,22,Color.rgb(50,47,59)));
+        versionButton=txt("  "+selectedMinecraftVersion+" • "+selectedLoader+"  ⌄  ",14,TEXT,true);
+        versionButton.setGravity(Gravity.CENTER);
+        versionButton.setSingleLine(true);
+        versionButton.setBackground(shape(PANEL2,22,Color.rgb(50,47,59)));
         LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(0,dp(42),1);
         vp.leftMargin=dp(10);
-        actions.addView(version,vp);
+        actions.addView(versionButton,vp);
         LinearLayout.LayoutParams actp=new LinearLayout.LayoutParams(-1,-2);
         actp.topMargin=dp(12);
         content.addView(actions,actp);
         play.setOnClickListener(v->toast("Game launching will be connected after the runtime setup."));
-        version.setOnClickListener(v->showVersionPicker(version));
+        versionButton.setOnClickListener(v->loadVersionCatalog());
 
-        TextView status=txt("Searching... You can switch tabs while results load.",13,MUTED,false);
-        content.addView(status,margins(-1,-2,0,dp(12),0,0));
+        downloadStatus=txt("Choose a Minecraft version and loader.",13,MUTED,false);
+        content.addView(downloadStatus,margins(-1,-2,0,dp(12),0,0));
+        TextView download=txt("↓  Download selected version",14,TEXT,true);
+        download.setGravity(Gravity.CENTER);
+        download.setBackground(shape(PANEL2,18,Color.rgb(55,51,65)));
+        content.addView(download,margins(-1,dp(40),0,dp(8),0,0));
+        download.setOnClickListener(v->downloadBaseVersion());
     }
 
-    private void showVersionPicker(TextView button) {
-        final String[] versions={"Latest release","1.21.11","1.21.10","1.21.8","1.20.6","1.20.4","Download another version..."};
-        new android.app.AlertDialog.Builder(this)
-            .setTitle("Select Minecraft version")
-            .setItems(versions,(dialog,which)->{
-                if(which==versions.length-1) {
-                    toast("Version downloads will be connected next.");
-                } else {
-                    String chosen=versions[which];
-                    button.setText("  "+chosen+"  ⌄  ");
-                    toast(chosen+" selected");
+    private void loadVersionCatalog() {
+        downloadStatus.setText("Loading official Minecraft version list...");
+        new Thread(() -> {
+            try {
+                String json=httpGet("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json");
+                org.json.JSONArray all=new org.json.JSONObject(json).getJSONArray("versions");
+                java.util.ArrayList<String> ids=new java.util.ArrayList<>();
+                java.util.ArrayList<String> labels=new java.util.ArrayList<>();
+                for(int i=0;i<all.length();i++) {
+                    org.json.JSONObject item=all.getJSONObject(i);
+                    String id=item.getString("id");
+                    String type=item.optString("type","");
+                    if(type.equals("release") || type.equals("old_beta") || type.equals("old_alpha")) {
+                        ids.add(id);
+                        labels.add(id+(type.equals("release")?"  •  Release":type.equals("old_beta")?"  •  Old Beta":"  •  Old Alpha"));
+                    }
                 }
-            }).show();
+                runOnUiThread(() -> {
+                    String[] choices=labels.toArray(new String[0]);
+                    new android.app.AlertDialog.Builder(this)
+                        .setTitle("Minecraft Java versions (1.0 – 26.3)")
+                        .setItems(choices,(d,which)->{
+                            selectedMinecraftVersion=ids.get(which);
+                            chooseLoaderForVersion();
+                        }).setNegativeButton("Cancel",null).show();
+                    downloadStatus.setText(ids.size()+" official releases and legacy versions loaded.");
+                });
+            } catch(Exception e) {
+                runOnUiThread(()->downloadStatus.setText("Could not load versions. Check your internet connection."));
+            }
+        }).start();
+    }
+
+    private void chooseLoaderForVersion() {
+        final String[] loaders={"Vanilla","Fabric","Forge","NeoForge","Quilt"};
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Loader for Minecraft "+selectedMinecraftVersion)
+            .setItems(loaders,(d,which)->{
+                selectedLoader=loaders[which];
+                versionButton.setText("  "+selectedMinecraftVersion+" • "+selectedLoader+"  ⌄  ");
+                checkLoaderCompatibility();
+            }).setNegativeButton("Cancel",null).show();
+    }
+
+    private void checkLoaderCompatibility() {
+        if(selectedLoader.equals("Vanilla")) {
+            downloadStatus.setText("Vanilla selected. Official game files are available.");
+            return;
+        }
+        downloadStatus.setText("Checking "+selectedLoader+" compatibility...");
+        new Thread(()->{
+            try {
+                String url;
+                if(selectedLoader.equals("Fabric"))
+                    url="https://meta.fabricmc.net/v2/versions/loader/"+java.net.URLEncoder.encode(selectedMinecraftVersion,"UTF-8");
+                else if(selectedLoader.equals("Quilt"))
+                    url="https://meta.quiltmc.org/v3/versions/loader/"+java.net.URLEncoder.encode(selectedMinecraftVersion,"UTF-8");
+                else if(selectedLoader.equals("Forge"))
+                    url="https://files.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml";
+                else
+                    url="https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml";
+                String data=httpGet(url);
+                String msg;
+                if(selectedLoader.equals("Fabric") || selectedLoader.equals("Quilt")) {
+                    org.json.JSONArray arr=new org.json.JSONArray(data);
+                    msg=arr.length()>0?selectedLoader+" supports Minecraft "+selectedMinecraftVersion+". "+arr.length()+" loader builds found."
+                        :selectedLoader+" does not list support for "+selectedMinecraftVersion+".";
+                } else {
+                    msg="Official "+selectedLoader+" metadata received. Compatibility will be matched during installer integration.";
+                }
+                final String result=msg;
+                runOnUiThread(()->downloadStatus.setText(result));
+            } catch(Exception e) {
+                runOnUiThread(()->downloadStatus.setText(selectedLoader+" compatibility could not be checked for this version."));
+            }
+        }).start();
+    }
+
+    private void downloadBaseVersion() {
+        final String game=selectedMinecraftVersion;
+        downloadStatus.setText("Preparing Minecraft "+game+" files...");
+        new Thread(()->{
+            try {
+                String manifest=httpGet("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json");
+                org.json.JSONArray all=new org.json.JSONObject(manifest).getJSONArray("versions");
+                String metadataUrl=null;
+                for(int i=0;i<all.length();i++) {
+                    org.json.JSONObject item=all.getJSONObject(i);
+                    if(item.getString("id").equals(game)){metadataUrl=item.getString("url");break;}
+                }
+                if(metadataUrl==null) throw new Exception("Version not found");
+                java.io.File base=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+game);
+                if(!base.exists() && !base.mkdirs()) throw new Exception("Cannot create folder");
+                String metadata=httpGet(metadataUrl);
+                writeText(new java.io.File(base,game+".json"),metadata);
+                org.json.JSONObject versionJson=new org.json.JSONObject(metadata);
+                org.json.JSONObject client=versionJson.getJSONObject("downloads").getJSONObject("client");
+                downloadFile(client.getString("url"),new java.io.File(base,game+".jar"));
+                runOnUiThread(()->downloadStatus.setText("Downloaded "+game+" metadata and client JAR. Libraries, assets, runtime and "+selectedLoader+" profile are still required before launch."));
+            } catch(Exception e) {
+                runOnUiThread(()->downloadStatus.setText("Download failed: "+e.getMessage()));
+            }
+        }).start();
+    }
+
+    private String httpGet(String address) throws Exception {
+        java.net.HttpURLConnection c=(java.net.HttpURLConnection)new java.net.URL(address).openConnection();
+        c.setConnectTimeout(15000);c.setReadTimeout(30000);c.setRequestProperty("User-Agent","ImmortalLauncher/0.1.0");
+        try(java.io.InputStream in=c.getInputStream();java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream()) {
+            byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1)out.write(b,0,n);
+            return out.toString("UTF-8");
+        } finally {c.disconnect();}
+    }
+
+    private void downloadFile(String address,java.io.File target) throws Exception {
+        java.net.HttpURLConnection c=(java.net.HttpURLConnection)new java.net.URL(address).openConnection();
+        c.setConnectTimeout(15000);c.setReadTimeout(60000);c.setRequestProperty("User-Agent","ImmortalLauncher/0.1.0");
+        try(java.io.InputStream in=c.getInputStream();java.io.FileOutputStream out=new java.io.FileOutputStream(target)) {
+            byte[] b=new byte[16384];int n;while((n=in.read(b))!=-1)out.write(b,0,n);
+        } finally {c.disconnect();}
+    }
+
+    private void writeText(java.io.File file,String data) throws Exception {
+        try(java.io.FileOutputStream out=new java.io.FileOutputStream(file)) {
+            out.write(data.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
     }
 
     private void open(String name) {
