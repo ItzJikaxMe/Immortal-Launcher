@@ -364,7 +364,7 @@ public class MainActivity extends Activity {
             if("runtime".equals(action)) {
                 chooseJavaRuntime(txt("Java Runtime",13,TEXT,true));
             } else if("controls".equals(action)) {
-                toast("The in-game control layout editor needs the Minecraft input engine.");
+                startActivity(new android.content.Intent(this,ControlLayoutEditorActivity.class));
             } else if("drivers".equals(action)) {
                 toast("Driver installation and switching need the graphics runtime bridge.");
             } else if("migration".equals(action)) {
