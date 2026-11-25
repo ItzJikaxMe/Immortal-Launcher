@@ -63,7 +63,7 @@ android {
             useLegacyPackaging true
         }
         resources {
-            excludes += ["META-INF/DEPENDENCIES", "META-INF/LICENSE*", "META-INF/NOTICE*"]
+            excludes += ["META-INF/DEPENDENCIES"]
         }
     }
 
@@ -105,8 +105,45 @@ dependencies {
 def generatedEngineAssets = file("$buildDir/generated/immortalEngineAssets")
 android.sourceSets.main.assets.srcDir(generatedEngineAssets)
 
+def componentRoot = new File(generatedEngineAssets, "components")
+def runtimeArchive = file("$buildDir/downloads/jre8-pojav.zip")
+def cacioBase = "https://jitpack.io/com/github/MojoLauncher"
+
+tasks.register("downloadImmortalJre8", Download) {
+    src "https://github.com/MojoLauncher/android-openjdk-build-multiarch/releases/download/rolling/jre8-pojav.zip"
+    dest runtimeArchive
+    overwrite false
+}
+
+tasks.register("unpackImmortalJre8", Copy) {
+    dependsOn("downloadImmortalJre8")
+    from { zipTree(runtimeArchive) }
+    into new File(componentRoot, "jre")
+}
+
+def cacioDownloads = [
+    [name: "cacio-shared", component: "caciocavallo", version: "d0efb5aaba", suffix: ""],
+    [name: "cacio-androidnw", component: "caciocavallo", version: "d0efb5aaba", suffix: ""],
+    [name: "cacio-tta", component: "caciocavallo17", version: "-411454b006-1", suffix: "-jar-with-dependencies"]
+]
+
+def cacioTaskNames = []
+cacioDownloads.each { spec ->
+    def taskName = "downloadImmortal" + spec.name.replaceAll("[^A-Za-z0-9]", "").capitalize()
+    cacioTaskNames.add(taskName)
+    tasks.register(taskName, Download) {
+        src "\${cacioBase}/\${spec.component}/\${spec.name}/\${spec.version}/\${spec.name}-\${spec.version}\${spec.suffix}.jar"
+        dest new File(new File(componentRoot, spec.component), "\${spec.name}-\${spec.version}\${spec.suffix}.jar")
+        overwrite false
+        doFirst {
+            destination.parentFile.mkdirs()
+        }
+    }
+}
+
 tasks.register("prepareImmortalEngineAssets") {
-    dependsOn(":forge_installer:jar", ":NoBlocklist:shadowJar")
+    dependsOn(":forge_installer:jar", ":NoBlocklist:shadowJar", "unpackImmortalJre8")
+    dependsOn(cacioTaskNames)
     outputs.dir(generatedEngineAssets)
 
     doLast {
