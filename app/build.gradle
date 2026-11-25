@@ -164,6 +164,8 @@ tasks.register("prepareImmortalEngineAssets") {
 
         new File(forgeDir, "version").text = "immortal-engine-forge-installer-1"
         new File(blocklistDir, "version").text = "immortal-engine-noblocklist-1"
+        new File(new File(components, "caciocavallo"), "version").text = "immortal-engine-cacio-1"
+        new File(new File(components, "caciocavallo17"), "version").text = "immortal-engine-cacio17-1"
     }
 }
 
