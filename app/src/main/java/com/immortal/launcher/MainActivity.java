@@ -82,12 +82,14 @@ public class MainActivity extends Activity {
 
         ImageView logo=new ImageView(this);
         logo.setImageResource(R.drawable.immortal_logo);
-        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        logo.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         logo.setAdjustViewBounds(false);
         logo.setPadding(0,0,0,0);
         logo.setBackgroundColor(Color.TRANSPARENT);
         logo.setContentDescription("Immortal Launcher logo");
-        h.addView(logo,new LinearLayout.LayoutParams(dp(64),dp(58)));
+        LinearLayout.LayoutParams logoParams=new LinearLayout.LayoutParams(dp(46),dp(46));
+        logoParams.gravity=Gravity.CENTER_VERTICAL;
+        h.addView(logo,logoParams);
 
         TextView brand=txt("Immortal Launcher",20,TEXT,true);
         LinearLayout.LayoutParams brandp=new LinearLayout.LayoutParams(0,-2,1);
