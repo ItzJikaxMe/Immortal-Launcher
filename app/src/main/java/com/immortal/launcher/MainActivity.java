@@ -198,7 +198,9 @@ public class MainActivity extends Activity {
         content.addView(txt("Add Version",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(8)));
         content.addView(txt("Choose an edition to install",13,MUTED,false),margins(-1,-2,dp(5),0,0,dp(10)));
         content.addView(txt("1  •  Choose Minecraft version",13,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(5)));
-        TextView game=txt((selectedMinecraftVersion.isEmpty()?"Select a game version":selectedMinecraftVersion)+"  ⌄",13,TEXT,true);
+        String displayedGame=prefs.getString("base_game_version","");
+        if(displayedGame.isEmpty()) displayedGame=selectedMinecraftVersion;
+        TextView game=txt((displayedGame.isEmpty()?"Select a game version":displayedGame)+"  ⌄",13,TEXT,true);
         game.setGravity(Gravity.CENTER_VERTICAL); game.setPadding(dp(12),0,dp(12),0);
         game.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
         content.addView(game,margins(-1,dp(42),0,0,0,dp(10)));
@@ -218,7 +220,10 @@ public class MainActivity extends Activity {
         install.setGravity(Gravity.CENTER); install.setBackground(shape(Color.rgb(190,187,199),14,Color.TRANSPARENT));
         content.addView(install,margins(-1,dp(42),0,dp(4),0,dp(8)));
         install.setOnClickListener(v->{
-            if(selectedMinecraftVersion.isEmpty()){toast("Choose a Minecraft version first.");return;}
+            String gameVersion=prefs.getString("base_game_version","");
+            if(gameVersion.isEmpty()) gameVersion=selectedMinecraftVersion;
+            if(gameVersion.isEmpty()){toast("Choose a Minecraft version first.");return;}
+            selectedMinecraftVersion=gameVersion;
             if("Fabric".equals(selectedLoader)||"Quilt".equals(selectedLoader)) chooseLoaderBuildAndInstall();
             else if("Vanilla".equals(selectedLoader)) showInstallConfirmation();
             else if("Forge".equals(selectedLoader)||"NeoForge".equals(selectedLoader)) {
@@ -246,7 +251,10 @@ public class MainActivity extends Activity {
         new android.app.AlertDialog.Builder(this).setTitle("Choose installed version")
             .setItems(installed.toArray(new String[0]),(d,which)->{
                 selectedMinecraftVersion=installed.get(which);
-                prefs.edit().putString("selected_version",selectedMinecraftVersion).apply();
+                selectedLoader=loaderForProfile(selectedMinecraftVersion);
+                prefs.edit().putString("selected_version",selectedMinecraftVersion)
+                        .putString("base_game_version",baseGameForProfile(selectedMinecraftVersion))
+                        .putString("selected_loader",selectedLoader).apply();
                 setContentView(build());
             }).setNegativeButton("Cancel",null).show();
     }
@@ -271,7 +279,11 @@ public class MainActivity extends Activity {
             TextView use=txt("SELECT",11,ACCENT,true); row.addView(use);
             content.addView(row,rp);
             row.setOnClickListener(v->{
-                selectedMinecraftVersion=id; prefs.edit().putString("selected_version",id).apply();
+                selectedMinecraftVersion=id;
+                selectedLoader=loaderForProfile(id);
+                prefs.edit().putString("selected_version",id)
+                        .putString("base_game_version",baseGameForProfile(id))
+                        .putString("selected_loader",selectedLoader).apply();
                 setContentView(build()); toast(id+" selected");
             });
             row.setOnLongClickListener(v->{
@@ -299,6 +311,26 @@ public class MainActivity extends Activity {
                 if(jar.exists() || inherited) out.add(f.getName());
             }
         java.util.Collections.sort(out); return out;
+    }
+
+    private String baseGameForProfile(String id) {
+        try {
+            java.io.File profile=new java.io.File(LauncherPaths.versionDirectory(this,id),id+".json");
+            org.json.JSONObject json=new org.json.JSONObject(new String(
+                    java.nio.file.Files.readAllBytes(profile.toPath()),"UTF-8"));
+            return json.optString("inheritsFrom",id);
+        } catch(Exception ignored) {
+            return id;
+        }
+    }
+
+    private String loaderForProfile(String id) {
+        String lower=id.toLowerCase(java.util.Locale.ROOT);
+        if(lower.contains("neoforge")) return "NeoForge";
+        if(lower.contains("forge")) return "Forge";
+        if(lower.contains("quilt")) return "Quilt";
+        if(lower.contains("fabric")) return "Fabric";
+        return "Vanilla";
     }
 
     private boolean isVersionInstalled(String id) {
