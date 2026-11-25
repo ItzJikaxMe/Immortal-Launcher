@@ -87,19 +87,21 @@ public class MainActivity extends Activity {
         logo.setPadding(0,0,0,0);
         logo.setBackgroundColor(Color.TRANSPARENT);
         logo.setContentDescription("Immortal Launcher logo");
-        LinearLayout.LayoutParams logoParams=new LinearLayout.LayoutParams(dp(46),dp(46));
+        LinearLayout.LayoutParams logoParams=new LinearLayout.LayoutParams(dp(38),dp(38));
         logoParams.gravity=Gravity.CENTER_VERTICAL;
         h.addView(logo,logoParams);
 
         TextView brand=txt("Immortal Launcher",20,TEXT,true);
-        LinearLayout.LayoutParams brandp=new LinearLayout.LayoutParams(0,-2,1);
-        brandp.leftMargin=dp(10);
+        LinearLayout.LayoutParams brandp=new LinearLayout.LayoutParams(-2,-2);
+        brandp.leftMargin=dp(9);
         h.addView(brand,brandp);
 
         TextView version=txt("0.1.0",12,MUTED,true);
         LinearLayout.LayoutParams verp=new LinearLayout.LayoutParams(-2,-2);
-        verp.leftMargin=dp(10);
+        verp.leftMargin=dp(9);
         h.addView(version,verp);
+        View spacer=new View(this);
+        h.addView(spacer,new LinearLayout.LayoutParams(0,1,1));
         return h;
     }
 
@@ -147,17 +149,17 @@ public class MainActivity extends Activity {
         LinearLayout actions=new LinearLayout(this);
         actions.setGravity(Gravity.CENTER_VERTICAL);
         actions.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        TextView play=txt("▶  Play Game",14,BG,true);
+        play.setGravity(Gravity.CENTER);
+        play.setBackground(shape(Color.rgb(190,187,199),22,Color.TRANSPARENT));
+        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(dp(132),dp(42));
+        actions.addView(play,pp);
         TextView version=txt("  Vanilla   ⌄  ",15,TEXT,true);
         version.setGravity(Gravity.CENTER);
-        version.setBackground(shape(PANEL2,24,Color.rgb(50,47,59)));
-        LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(dp(132),dp(46));
+        version.setBackground(shape(PANEL2,22,Color.rgb(50,47,59)));
+        LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(0,dp(42),1);
+        vp.leftMargin=dp(10);
         actions.addView(version,vp);
-        TextView play=txt("▶   Play Game",15,BG,true);
-        play.setGravity(Gravity.CENTER);
-        play.setBackground(shape(Color.rgb(190,187,199),24,Color.TRANSPARENT));
-        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(46),1);
-        pp.leftMargin=dp(10);
-        actions.addView(play,pp);
         LinearLayout.LayoutParams actp=new LinearLayout.LayoutParams(-1,-2);
         actp.topMargin=dp(12);
         content.addView(actions,actp);
