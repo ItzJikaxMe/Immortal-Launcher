@@ -39,6 +39,12 @@
         tools:ignore="UnusedAttribute">
 
         <activity
+            android:name="com.immortal.launcher.EngineLaunchActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|keyboard|navigation"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+
+        <activity
             android:name="com.immortal.launcher.ControlLayoutEditorActivity"
             android:configChanges="keyboardHidden|orientation|screenSize|keyboard|navigation"
             android:exported="false"

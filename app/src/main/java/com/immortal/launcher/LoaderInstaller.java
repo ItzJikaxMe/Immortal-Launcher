@@ -59,7 +59,7 @@ public final class LoaderInstaller {
 
         File root=context.getExternalFilesDir(null);
         if(root==null) root=context.getFilesDir();
-        File minecraft=new File(root,"minecraft");
+        File minecraft=new File(root,".minecraft");
         File versions=new File(minecraft,"versions");
         File libraries=new File(minecraft,"libraries");
         ensureDir(versions); ensureDir(libraries);

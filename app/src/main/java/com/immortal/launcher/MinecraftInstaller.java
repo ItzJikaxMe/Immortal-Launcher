@@ -26,7 +26,7 @@ public final class MinecraftInstaller {
     public void install(String versionId) throws Exception {
         File root = context.getExternalFilesDir(null);
         if (root == null) root = context.getFilesDir();
-        File minecraft = new File(root, "minecraft");
+        File minecraft = new File(root, ".minecraft");
         File versions = new File(minecraft, "versions");
         File libraries = new File(minecraft, "libraries");
         File assets = new File(minecraft, "assets");

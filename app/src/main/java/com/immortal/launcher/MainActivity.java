@@ -20,6 +20,7 @@ import android.widget.SeekBar;
 import android.widget.EditText;
 import android.widget.Button;
 import android.content.SharedPreferences;
+import android.content.Intent;
 
 public class MainActivity extends Activity {
     private static final int BG=Color.rgb(12,12,16), PANEL=Color.rgb(27,26,33),
@@ -177,7 +178,9 @@ public class MainActivity extends Activity {
                 toast("Install this version first from Add Version.");
                 return;
             }
-            toast("Version selected. Full Java runtime and game launch integration is the next required step.");
+            Intent launch = new Intent(this, EngineLaunchActivity.class);
+            launch.putExtra(EngineLaunchActivity.EXTRA_VERSION_ID, selectedMinecraftVersion);
+            startActivity(launch);
         });
         add.setOnClickListener(v->open("Add Version"));
 
@@ -266,7 +269,7 @@ public class MainActivity extends Activity {
                 new android.app.AlertDialog.Builder(this).setTitle("Remove "+id+"?")
                     .setMessage("Delete this installed version's files?")
                     .setNegativeButton("Cancel",null).setPositiveButton("Delete",(d,w)->{
-                        java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+id);
+                        java.io.File dir=LauncherPaths.versionDirectory(this,id);
                         deleteTree(dir); showPage();
                     }).show(); return true;
             });
@@ -275,7 +278,7 @@ public class MainActivity extends Activity {
 
     private java.util.ArrayList<String> getInstalledVersions() {
         java.util.ArrayList<String> out=new java.util.ArrayList<>();
-        java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions");
+        java.io.File dir=LauncherPaths.versionsDirectory(this);
         java.io.File[] files=dir.listFiles();
         if(files!=null) for(java.io.File f:files)
             if(f.isDirectory() && new java.io.File(f,f.getName()+".json").exists()) {
@@ -606,7 +609,7 @@ public class MainActivity extends Activity {
         else if("Shaders".equals(selected)) folder="shaderpacks";
         else if("Modpacks".equals(selected)) folder="modpacks";
         else folder="skins";
-        java.io.File base=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+selectedMinecraftVersion+"/"+folder);
+        java.io.File base=LauncherPaths.sharedFolder(this,folder);
         if(!base.exists()) base.mkdirs();
         content.addView(txt(title,23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(4)));
         content.addView(txt("Files for "+selectedMinecraftVersion+" • stored in the selected instance",12,MUTED,false),
@@ -768,7 +771,7 @@ public class MainActivity extends Activity {
         new Thread(()->{
             try{
                 org.json.JSONObject version=client.versions(project.getString("project_id"),game,selectedLoader);
-                String directory=selectedMinecraftVersion+"/"+folder;
+                String directory=folder;
                 java.io.File file=client.downloadPrimary(version,directory);
                 runOnUiThread(()->{toast("Downloaded "+file.getName());showPage();});
             }catch(Exception e){runOnUiThread(()->toast("Download failed: "+e.getMessage()));}
