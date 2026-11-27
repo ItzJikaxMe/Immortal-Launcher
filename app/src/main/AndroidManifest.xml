@@ -40,10 +40,10 @@
 
         <activity
             android:name="com.immortal.launcher.ImmortalSettingsActivity"
-            android:exported="false" />
+            android:exported="false" android:screenOrientation="landscape" />
         <activity
             android:name="com.immortal.launcher.MicrosoftLoginActivity"
-            android:exported="false" />
+            android:exported="false" android:screenOrientation="landscape" />
         <activity
             android:name="com.immortal.launcher.EngineForgeInstallActivity"
             android:configChanges="keyboardHidden|orientation|screenSize|keyboard|navigation"
