@@ -1226,6 +1226,10 @@ public class MainActivity extends Activity {
     private void open(String name) {
         settingsPage="";
         selected=name;
+        if ("Settings".equals(name)) {
+            startActivity(new Intent(this, ImmortalSettingsActivity.class));
+            return;
+        }
         setContentView(build());
     }
     private LinearLayout card() {
