@@ -43,7 +43,7 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
         getWindow().getDecorView().setSystemUiVisibility(0);
-        setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         prefs=getSharedPreferences("immortal_settings",MODE_PRIVATE);
         git.artdeell.mojo.prefs.LauncherPreferences.DEFAULT_PREF =
                 androidx.preference.PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
@@ -57,40 +57,37 @@ public class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         root.setBackgroundColor(BG);
-        root.setPadding(dp(14),dp(5),dp(14),dp(8));
-        root.addView(header(),new LinearLayout.LayoutParams(-1,dp(58)));
-
-        LinearLayout body=new LinearLayout(this);
-        body.setOrientation(LinearLayout.HORIZONTAL);
-        body.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,0,1);
-        bp.topMargin=dp(5);
-        root.addView(body,bp);
-
-        navColumn=new LinearLayout(this);
-        navColumn.setOrientation(LinearLayout.VERTICAL);
-        navColumn.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        navColumn.setPadding(0,dp(6),dp(12),dp(6));
-        body.addView(navColumn,new LinearLayout.LayoutParams(dp(145),-1));
-        addNav("▶","Play"); addNav("▦","Mods"); addNav("▰","Resource Pack");
-        addNav("☼","Shaders"); addNav("▱","Versions"); addNav("☷","Settings"); addNav("♟","Skins");
-        addNav("▧","Modpacks"); addNav("◉","Accounts"); addNav("▤","Graphics"); addNav("≡","Logs");
-
-        View divider=new View(this);
-        divider.setBackgroundColor(Color.rgb(49,47,57));
-        body.addView(divider,new LinearLayout.LayoutParams(dp(1),-1));
+        root.setPadding(dp(14),dp(5),dp(14),dp(5));
+        root.addView(header(),new LinearLayout.LayoutParams(-1,dp(62)));
 
         ScrollView scroll=new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,-1,1);
-        sp.leftMargin=dp(14);
-        body.addView(scroll,sp);
+        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         content=new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        content.setPadding(dp(2),dp(5),dp(2),dp(4));
+        content.setPadding(dp(1),dp(5),dp(1),dp(12));
         scroll.addView(content);
+
+        LinearLayout bottom=new LinearLayout(this);
+        bottom.setGravity(Gravity.CENTER);
+        bottom.setBackground(shape(PANEL,18,Color.rgb(45,44,52)));
+        bottom.setPadding(dp(3),dp(5),dp(3),dp(5));
+        String[][] tabs={{"⌂","Home","Play"},{"▤","Library","Versions"},{"↓","Downloads","Add Version"},{"♟","Profile","Accounts"},{"•••","More","More"}};
+        for(String[] tab:tabs) {
+            LinearLayout item=new LinearLayout(this);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setGravity(Gravity.CENTER);
+            TextView symbol=txt(tab[0],20,selected.equals(tab[2])||("Play".equals(selected)&&"Home".equals(tab[1]))?ACCENT:MUTED,true);
+            TextView label=txt(tab[1],10,selected.equals(tab[2])||("Play".equals(selected)&&"Home".equals(tab[1]))?ACCENT:MUTED,true);
+            item.addView(symbol); item.addView(label);
+            item.setOnClickListener(v->open(tab[2]));
+            bottom.addView(item,new LinearLayout.LayoutParams(0,dp(48),1));
+        }
+        LinearLayout.LayoutParams navp=new LinearLayout.LayoutParams(-1,dp(56));
+        navp.topMargin=dp(5);
+        root.addView(bottom,navp);
         showPage();
         return root;
     }
@@ -141,13 +138,26 @@ public class MainActivity extends Activity {
     private void showPage() {
         content.removeAllViews();
         if("Settings".equals(selected)) { showSettingsPage(); return; }
-        if("Versions".equals(selected)) { showInstalledVersionsPage(); return; }
-        if("Add Version".equals(selected)) { showAddVersionPage(); return; }
+        if("Versions".equals(selected) || "Library".equals(selected)) { showInstalledVersionsPage(); return; }
+        if("Add Version".equals(selected) || "Downloads".equals(selected)) { showAddVersionPage(); return; }
         if("Mods".equals(selected) || "Resource Pack".equals(selected) || "Shaders".equals(selected)
                 || "Modpacks".equals(selected) || "Skins".equals(selected)) { showFileLibraryPage(); return; }
-        if("Accounts".equals(selected)) { showAccountsPage(); return; }
+        if("Accounts".equals(selected) || "Profile".equals(selected)) { showAccountsPage(); return; }
         if("Graphics".equals(selected)) { showGraphicsPage(); return; }
         if("Logs".equals(selected)) { showLogsPage(); return; }
+        if("More".equals(selected)) {
+            content.addView(txt("Explore",24,TEXT,true),margins(-1,-2,dp(5),dp(8),0,dp(12)));
+            String[][] links={{"▦","Mods"},{"▰","Resource Pack"},{"☼","Shaders"},{"▧","Modpacks"},{"♟","Skins"},{"◉","Accounts"},{"☷","Settings"},{"▤","Graphics"},{"≡","Logs"}};
+            for(String[] link:links) {
+                LinearLayout row=card(); row.setGravity(Gravity.CENTER_VERTICAL);
+                row.addView(txt(link[0],22,ACCENT,true),new LinearLayout.LayoutParams(dp(42),dp(42)));
+                row.addView(txt(link[1],15,TEXT,true),new LinearLayout.LayoutParams(0,-2,1));
+                row.addView(txt("›",23,MUTED,true));
+                content.addView(row,margins(-1,dp(58),0,dp(3),0,dp(3)));
+                row.setOnClickListener(v->open(link[1]));
+            }
+            return;
+        }
         if(!"Play".equals(selected)) {
             content.addView(txt(selected,24,TEXT,true),margins(-1,-2,dp(10),dp(12),0,dp(10)));
             LinearLayout panel=card(); panel.setGravity(Gravity.CENTER);
@@ -155,46 +165,69 @@ public class MainActivity extends Activity {
             content.addView(panel,new LinearLayout.LayoutParams(-1,dp(170)));
             return;
         }
+
         FrameLayout hero=new FrameLayout(this);
         hero.setBackground(shape(Color.rgb(20,19,27),22,Color.rgb(53,51,62)));
         EndermanArt art=new EndermanArt(); hero.addView(art,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout heroText=new LinearLayout(this); heroText.setOrientation(LinearLayout.VERTICAL);
-        heroText.setGravity(Gravity.CENTER_VERTICAL); heroText.setPadding(dp(22),dp(15),dp(22),dp(15));
-        heroText.addView(txt("Ready to play",27,TEXT,true));
-        heroText.addView(txt(selectedMinecraftVersion.isEmpty()?"Choose a Minecraft Java version":"Minecraft Java  •  "+selectedMinecraftVersion+" / "+selectedLoader,14,MUTED,false),
-            margins(-1,-2,0,dp(5),0,0));
+        heroText.setGravity(Gravity.CENTER_VERTICAL); heroText.setPadding(dp(18),dp(15),dp(18),dp(15));
+        heroText.addView(txt("Ready to play",25,TEXT,true));
+        heroText.addView(txt("Minecraft Java Edition",13,TEXT,true),margins(-1,-2,0,dp(4),0,0));
+        heroText.addView(txt(selectedMinecraftVersion.isEmpty()?"Choose your version":selectedMinecraftVersion+"  •  "+selectedLoader,12,MUTED,false));
         hero.addView(heroText,new FrameLayout.LayoutParams(-1,-1));
-        content.addView(hero,new LinearLayout.LayoutParams(-1,dp(174)));
+        content.addView(hero,new LinearLayout.LayoutParams(-1,dp(190)));
 
-        LinearLayout actions=new LinearLayout(this);
-        actions.setGravity(Gravity.CENTER_VERTICAL); actions.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        TextView play=txt("▶  Play Game",14,BG,true); play.setGravity(Gravity.CENTER);
-        play.setBackground(shape(Color.rgb(190,187,199),22,Color.TRANSPARENT));
-        LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,dp(42),1);
-        actions.addView(play,pp);
-        TextView add=txt("+ Add Version",12,TEXT,true); add.setGravity(Gravity.CENTER);
-        add.setBackground(shape(PANEL2,18,Color.rgb(55,51,65)));
-        LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(dp(112),dp(38));
-        ap.leftMargin=dp(9); actions.addView(add,ap);
-        content.addView(actions,margins(-1,-2,0,dp(12),0,0));
+        LinearLayout versionPlay=new LinearLayout(this);
+        versionPlay.setGravity(Gravity.CENTER_VERTICAL);
+        versionPlay.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        LinearLayout versionCard=card(); versionCard.setGravity(Gravity.CENTER_VERTICAL);
+        versionCard.addView(txt("▰",26,ACCENT,true),margins(dp(38),-2,0,0,dp(8),0));
+        LinearLayout versionLabels=new LinearLayout(this); versionLabels.setOrientation(LinearLayout.VERTICAL);
+        versionLabels.addView(txt("Selected Version",12,TEXT,true));
+        versionLabels.addView(txt(selectedMinecraftVersion.isEmpty()?"Not installed":selectedMinecraftVersion,12,MUTED,false));
+        versionCard.addView(versionLabels,new LinearLayout.LayoutParams(0,-2,1));
+        versionCard.addView(txt("⌄",22,MUTED,true));
+        versionPlay.addView(versionCard,new LinearLayout.LayoutParams(0,dp(76),1));
+        TextView play=txt("▶  Play",19,Color.WHITE,true); play.setGravity(Gravity.CENTER);
+        play.setBackground(shape(Color.rgb(55,190,65),18,Color.rgb(75,220,80)));
+        LinearLayout.LayoutParams playp=new LinearLayout.LayoutParams(0,dp(76),1);
+        playp.leftMargin=dp(8); versionPlay.addView(play,playp);
+        content.addView(versionPlay,margins(-1,-2,0,dp(10),0,dp(8)));
+        versionCard.setOnClickListener(v->{java.util.ArrayList<String> installed=getInstalledVersions();if(installed.isEmpty())open("Add Version");else showInstalledVersionPicker();});
         play.setOnClickListener(v->{
-            if(!isVersionInstalled(selectedMinecraftVersion)) {
-                toast("Install this version first from Add Version.");
-                return;
-            }
-            Intent launch = new Intent(this, EngineLaunchActivity.class);
-            launch.putExtra(EngineLaunchActivity.EXTRA_VERSION_ID, selectedMinecraftVersion);
+            if(!isVersionInstalled(selectedMinecraftVersion)) { toast("Install this version first from Add Version."); return; }
+            Intent launch=new Intent(this,EngineLaunchActivity.class);
+            launch.putExtra(EngineLaunchActivity.EXTRA_VERSION_ID,selectedMinecraftVersion);
             startActivity(launch);
         });
-        add.setOnClickListener(v->open("Add Version"));
 
-        java.util.ArrayList<String> installed=getInstalledVersions();
-        TextView instance=txt(installed.isEmpty()?"No installed instance  •  Add Version":"Selected instance: "+selectedMinecraftVersion+"  ⌄",12,TEXT,true);
-        instance.setGravity(Gravity.CENTER_VERTICAL); instance.setPadding(dp(12),0,dp(12),0);
-        instance.setBackground(shape(PANEL2,14,Color.rgb(50,47,59)));
-        content.addView(instance,margins(-1,dp(36),0,dp(8),0,0));
-        instance.setOnClickListener(v->{if(installed.isEmpty())open("Add Version");else showInstalledVersionPicker();});
-    }    private void showAddVersionPage() {
+        String[][] shortcuts={{"✣","Mods"},{"▰","Resource Packs"},{"☼","Shaders"},{"♧","Skins"},{"▧","Modpacks"},{"▤","Versions"}};
+        for(int rowIndex=0;rowIndex<2;rowIndex++) {
+            LinearLayout row=new LinearLayout(this); row.setGravity(Gravity.CENTER);
+            for(int col=0;col<3;col++) {
+                String[] item=shortcuts[rowIndex*3+col];
+                LinearLayout tile=card(); tile.setOrientation(LinearLayout.VERTICAL); tile.setGravity(Gravity.CENTER);
+                tile.addView(txt(item[0],25,ACCENT,true));
+                tile.addView(txt(item[1],11,TEXT,true));
+                LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,dp(86),1);
+                if(col>0)tp.leftMargin=dp(6);
+                row.addView(tile,tp);
+                tile.setOnClickListener(v->open("Resource Packs".equals(item[1])?"Resource Pack":item[1]));
+            }
+            content.addView(row,margins(-1,-2,0,dp(5),0,0));
+        }
+
+        LinearLayout newsTitle=new LinearLayout(this); newsTitle.setGravity(Gravity.CENTER_VERTICAL);
+        newsTitle.addView(txt("News & Updates",19,TEXT,true),new LinearLayout.LayoutParams(0,-2,1));
+        TextView viewAll=txt("View all  →",12,ACCENT,true); newsTitle.addView(viewAll);
+        content.addView(newsTitle,margins(-1,-2,0,dp(16),0,dp(8)));
+        LinearLayout news=card(); news.setOrientation(LinearLayout.VERTICAL);
+        news.addView(txt("Minecraft latest news",15,TEXT,true));
+        news.addView(txt("Updates, snapshots and community highlights will appear here.",12,MUTED,false),margins(-1,-2,0,dp(5),0,0));
+        content.addView(news,new LinearLayout.LayoutParams(-1,dp(82)));
+    }
+
+    private void showAddVersionPage() {
         content.addView(txt("Add Version",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(8)));
         content.addView(txt("Choose an edition to install",13,MUTED,false),margins(-1,-2,dp(5),0,0,dp(10)));
         content.addView(txt("1  •  Choose Minecraft version",13,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(5)));
