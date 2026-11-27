@@ -43,9 +43,7 @@ public final class ModrinthClient {
         if(chosen==null) throw new IOException("This project version has no downloadable file.");
         String filename=chosen.getString("filename");
         String address=chosen.getString("url");
-        File root=context.getExternalFilesDir(null);
-        if(root==null)root=context.getFilesDir();
-        File dir=new File(root,"minecraft/versions/"+folderName);
+        File dir=LauncherPaths.sharedFolder(context,folderName);
         if(!dir.exists()&&!dir.mkdirs())throw new IOException("Cannot create download folder");
         File target=new File(dir,filename);
         File temp=new File(dir,filename+".part");

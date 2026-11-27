@@ -20,6 +20,7 @@ import android.widget.SeekBar;
 import android.widget.EditText;
 import android.widget.Button;
 import android.content.SharedPreferences;
+import android.content.Intent;
 
 public class MainActivity extends Activity {
     private static final int BG=Color.rgb(12,12,16), PANEL=Color.rgb(27,26,33),
@@ -27,20 +28,25 @@ public class MainActivity extends Activity {
         MUTED=Color.rgb(157,154,170), ACCENT=Color.rgb(151,111,235);
     private LinearLayout content, navColumn;
     private String selected="Play";
+    private String settingsPage="";
     private String selectedMinecraftVersion="";
     private String selectedLoader="Vanilla";
     private TextView versionButton, downloadStatus;
     private SharedPreferences prefs;
     private java.util.ArrayList<String> catalogIds = new java.util.ArrayList<>();
     private java.util.ArrayList<String> catalogLabels = new java.util.ArrayList<>();
+    private volatile java.io.File pendingModpackArchive;
+    private volatile ModrinthModpackInstaller.PackInfo pendingModpackInfo;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
         getWindow().getDecorView().setSystemUiVisibility(0);
-        setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         prefs=getSharedPreferences("immortal_settings",MODE_PRIVATE);
+        git.artdeell.mojo.prefs.LauncherPreferences.DEFAULT_PREF =
+                androidx.preference.PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         selectedMinecraftVersion=prefs.getString("selected_version","");
         selectedLoader=prefs.getString("selected_loader","Vanilla");
         setContentView(build());
@@ -106,7 +112,7 @@ public class MainActivity extends Activity {
         brandp.leftMargin=dp(9);
         h.addView(brand,brandp);
 
-        TextView version=txt("0.1.0",12,MUTED,true);
+        TextView version=txt("0.2.0",12,MUTED,true);
         LinearLayout.LayoutParams verp=new LinearLayout.LayoutParams(-2,-2);
         verp.leftMargin=dp(9);
         h.addView(version,verp);
@@ -176,7 +182,9 @@ public class MainActivity extends Activity {
                 toast("Install this version first from Add Version.");
                 return;
             }
-            toast("Version selected. Full Java runtime and game launch integration is the next required step.");
+            Intent launch = new Intent(this, EngineLaunchActivity.class);
+            launch.putExtra(EngineLaunchActivity.EXTRA_VERSION_ID, selectedMinecraftVersion);
+            startActivity(launch);
         });
         add.setOnClickListener(v->open("Add Version"));
 
@@ -190,7 +198,9 @@ public class MainActivity extends Activity {
         content.addView(txt("Add Version",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(8)));
         content.addView(txt("Choose an edition to install",13,MUTED,false),margins(-1,-2,dp(5),0,0,dp(10)));
         content.addView(txt("1  •  Choose Minecraft version",13,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(5)));
-        TextView game=txt((selectedMinecraftVersion.isEmpty()?"Select a game version":selectedMinecraftVersion)+"  ⌄",13,TEXT,true);
+        String displayedGame=prefs.getString("base_game_version","");
+        if(displayedGame.isEmpty()) displayedGame=selectedMinecraftVersion;
+        TextView game=txt((displayedGame.isEmpty()?"Select a game version":displayedGame)+"  ⌄",13,TEXT,true);
         game.setGravity(Gravity.CENTER_VERTICAL); game.setPadding(dp(12),0,dp(12),0);
         game.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
         content.addView(game,margins(-1,dp(42),0,0,0,dp(10)));
@@ -210,10 +220,18 @@ public class MainActivity extends Activity {
         install.setGravity(Gravity.CENTER); install.setBackground(shape(Color.rgb(190,187,199),14,Color.TRANSPARENT));
         content.addView(install,margins(-1,dp(42),0,dp(4),0,dp(8)));
         install.setOnClickListener(v->{
-            if(selectedMinecraftVersion.isEmpty()){toast("Choose a Minecraft version first.");return;}
+            String gameVersion=prefs.getString("base_game_version","");
+            if(gameVersion.isEmpty()) gameVersion=selectedMinecraftVersion;
+            if(gameVersion.isEmpty()){toast("Choose a Minecraft version first.");return;}
+            selectedMinecraftVersion=gameVersion;
             if("Fabric".equals(selectedLoader)||"Quilt".equals(selectedLoader)) chooseLoaderBuildAndInstall();
             else if("Vanilla".equals(selectedLoader)) showInstallConfirmation();
-            else toast(selectedLoader+" installer is not integrated yet. I won't create a fake installed profile.");
+            else if("Forge".equals(selectedLoader)||"NeoForge".equals(selectedLoader)) {
+                Intent intent=new Intent(this,EngineForgeInstallActivity.class);
+                intent.putExtra(EngineForgeInstallActivity.EXTRA_GAME_VERSION,selectedMinecraftVersion);
+                intent.putExtra(EngineForgeInstallActivity.EXTRA_LOADER,selectedLoader);
+                startActivityForResult(intent,202);
+            }
         });
         downloadStatus=txt("Choose the Minecraft version first, then choose its loader.",12,MUTED,false);
         content.addView(downloadStatus,margins(-1,-2,dp(5),dp(4),0,0));
@@ -233,7 +251,10 @@ public class MainActivity extends Activity {
         new android.app.AlertDialog.Builder(this).setTitle("Choose installed version")
             .setItems(installed.toArray(new String[0]),(d,which)->{
                 selectedMinecraftVersion=installed.get(which);
-                prefs.edit().putString("selected_version",selectedMinecraftVersion).apply();
+                selectedLoader=loaderForProfile(selectedMinecraftVersion);
+                prefs.edit().putString("selected_version",selectedMinecraftVersion)
+                        .putString("base_game_version",baseGameForProfile(selectedMinecraftVersion))
+                        .putString("selected_loader",selectedLoader).apply();
                 setContentView(build());
             }).setNegativeButton("Cancel",null).show();
     }
@@ -258,14 +279,18 @@ public class MainActivity extends Activity {
             TextView use=txt("SELECT",11,ACCENT,true); row.addView(use);
             content.addView(row,rp);
             row.setOnClickListener(v->{
-                selectedMinecraftVersion=id; prefs.edit().putString("selected_version",id).apply();
+                selectedMinecraftVersion=id;
+                selectedLoader=loaderForProfile(id);
+                prefs.edit().putString("selected_version",id)
+                        .putString("base_game_version",baseGameForProfile(id))
+                        .putString("selected_loader",selectedLoader).apply();
                 setContentView(build()); toast(id+" selected");
             });
             row.setOnLongClickListener(v->{
                 new android.app.AlertDialog.Builder(this).setTitle("Remove "+id+"?")
                     .setMessage("Delete this installed version's files?")
                     .setNegativeButton("Cancel",null).setPositiveButton("Delete",(d,w)->{
-                        java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+id);
+                        java.io.File dir=LauncherPaths.versionDirectory(this,id);
                         deleteTree(dir); showPage();
                     }).show(); return true;
             });
@@ -274,7 +299,7 @@ public class MainActivity extends Activity {
 
     private java.util.ArrayList<String> getInstalledVersions() {
         java.util.ArrayList<String> out=new java.util.ArrayList<>();
-        java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions");
+        java.io.File dir=LauncherPaths.versionsDirectory(this);
         java.io.File[] files=dir.listFiles();
         if(files!=null) for(java.io.File f:files)
             if(f.isDirectory() && new java.io.File(f,f.getName()+".json").exists()) {
@@ -288,8 +313,28 @@ public class MainActivity extends Activity {
         java.util.Collections.sort(out); return out;
     }
 
+    private String baseGameForProfile(String id) {
+        try {
+            java.io.File profile=new java.io.File(LauncherPaths.versionDirectory(this,id),id+".json");
+            org.json.JSONObject json=new org.json.JSONObject(new String(
+                    java.nio.file.Files.readAllBytes(profile.toPath()),"UTF-8"));
+            return json.optString("inheritsFrom",id);
+        } catch(Exception ignored) {
+            return id;
+        }
+    }
+
+    private String loaderForProfile(String id) {
+        String lower=id.toLowerCase(java.util.Locale.ROOT);
+        if(lower.contains("neoforge")) return "NeoForge";
+        if(lower.contains("forge")) return "Forge";
+        if(lower.contains("quilt")) return "Quilt";
+        if(lower.contains("fabric")) return "Fabric";
+        return "Vanilla";
+    }
+
     private boolean isVersionInstalled(String id) {
-        java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+id);
+        java.io.File dir=LauncherPaths.versionDirectory(this,id);
         java.io.File profile=new java.io.File(dir,id+".json");
         if(!profile.exists()) return false;
         if(new java.io.File(dir,id+".jar").exists()) return true;
@@ -305,61 +350,307 @@ public class MainActivity extends Activity {
     }
 
     private void showSettingsPage() {
-        content.addView(txt("Launcher Settings",23,TEXT,true),margins(-1,-2,dp(5),dp(6),0,dp(10)));
-        content.addView(txt("Memory Allocation",15,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(2)));
-        android.app.ActivityManager.MemoryInfo memoryInfo=new android.app.ActivityManager.MemoryInfo();
-        ((android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(memoryInfo);
-        int deviceRamMb=(int)(memoryInfo.totalMem/1048576L);
-        int maxRamMb=Math.max(1024,Math.min(8192,(int)(deviceRamMb*0.65f)));
-        int minRamMb=512;
-        int memory=Math.min(maxRamMb,Math.max(minRamMb,prefs.getInt("ram_mb",Math.min(2048,maxRamMb/2))));
-        TextView ramValue=txt(memory+" MB",13,ACCENT,true);
-        content.addView(ramValue,margins(-1,-2,dp(5),0,0,0));
-        SeekBar ram=new SeekBar(this); ram.setMax(maxRamMb-minRamMb); ram.setProgress(Math.max(0,Math.min(maxRamMb-minRamMb,memory-minRamMb)));
-        content.addView(ram,margins(-1,dp(34),0,0,0,dp(8)));
-        ram.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-            public void onProgressChanged(SeekBar b,int value,boolean user){int mb=minRamMb+value;ramValue.setText(mb+" MB");}
-            public void onStartTrackingTouch(SeekBar b){}
-            public void onStopTrackingTouch(SeekBar b){prefs.edit().putInt("ram_mb",minRamMb+b.getProgress()).apply();}
+        if(!settingsPage.isEmpty()) {
+            switch(settingsPage) {
+                case "java": showJavaSettings(); return;
+                case "video": showVideoSettings(); return;
+                case "controls": showControlSettings(); return;
+                case "misc": showMiscSettings(); return;
+                case "experimental": showExperimentalSettings(); return;
+                case "general": showGeneralSettings(); return;
+            }
+        }
+        content.addView(txt("Settings",23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(5)));
+        content.addView(txt("Every part of Immortal, organized in its own space.",12,MUTED,false),
+            margins(-1,-2,dp(5),0,0,dp(12)));
+        settingsCategory("☕","Java & Memory","Runtime manager, RAM allocation, JVM arguments and sandbox","java");
+        settingsCategory("▧","Video & Graphics","Renderer, resolution, display and graphics drivers","video");
+        settingsCategory("⌖","Controls & Input","Touch layout, gestures, mouse, gyro and controllers","controls");
+        settingsCategory("⚙","Advanced & Miscellaneous","Downloads, verification, cache and launcher behavior","misc");
+        settingsCategory("⚗","Experimental","GPU and performance options for supported devices","experimental");
+        settingsCategory("文","Language & Permissions","Language preference and Android permissions","general");
+    }
+
+    private void settingsCategory(String icon,String title,String subtitle,String page) {
+        LinearLayout row=card();
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(13),dp(11),dp(13),dp(11));
+        TextView symbol=txt(icon,22,ACCENT,true);
+        symbol.setGravity(Gravity.CENTER);
+        row.addView(symbol,new LinearLayout.LayoutParams(dp(42),dp(42)));
+        LinearLayout labels=new LinearLayout(this);
+        labels.setOrientation(LinearLayout.VERTICAL);
+        labels.setPadding(dp(10),0,dp(4),0);
+        labels.addView(txt(title,14,TEXT,true));
+        labels.addView(txt(subtitle,11,MUTED,false),margins(-1,-2,0,dp(3),0,0));
+        row.addView(labels,new LinearLayout.LayoutParams(0,-2,1));
+        row.addView(txt("›",24,MUTED,true));
+        content.addView(row,margins(-1,-2,0,dp(4),0,dp(4)));
+        row.setOnClickListener(v->{settingsPage=page;showPage();});
+    }
+
+    private void settingsHeader(String title,String subtitle) {
+        TextView back=txt("‹   Settings",12,ACCENT,true);
+        back.setGravity(Gravity.CENTER_VERTICAL);
+        content.addView(back,margins(-1,dp(30),0,0,0,dp(7)));
+        back.setOnClickListener(v->{settingsPage="";showPage();});
+        content.addView(txt(title,22,TEXT,true),margins(-1,-2,0,0,0,dp(3)));
+        content.addView(txt(subtitle,11,MUTED,false),margins(-1,-2,0,0,0,dp(10)));
+    }
+
+    private void settingsAction(String title,String summary,String action) {
+        LinearLayout row=card();
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.addView(txt(title,13,TEXT,true));
+        row.addView(txt(summary,11,MUTED,false),margins(-1,-2,0,dp(3),0,0));
+        content.addView(row,margins(-1,-2,0,dp(3),0,dp(3)));
+        row.setOnClickListener(v->{
+            if("runtime".equals(action)) {
+                chooseJavaRuntime(txt("Java Runtime",13,TEXT,true));
+            } else if("controls".equals(action)) {
+                startActivity(new android.content.Intent(this,ControlLayoutEditorActivity.class));
+            } else if("drivers".equals(action)) {
+                toast("Driver installation and switching need the graphics runtime bridge.");
+            } else if("migration".equals(action)) {
+                toast("Data migration will be available when the instance storage manager is integrated.");
+            } else if("partials".equals(action)) {
+                int removed = deletePartialDownloads(LauncherPaths.appDataRoot(this));
+                toast(removed == 0 ? "No partial downloads were found." : "Removed " + removed + " incomplete download file(s).");
+            } else if("cache".equals(action)) {
+                toast("There is no separate metadata cache to clear in this build.");
+            } else if("mic".equals(action)) {
+                toast("Microphone permission is managed by Android when voice chat support is added.");
+            }
         });
-        TextView runtime=txt("Java Runtime  •  "+prefs.getString("java_runtime","Auto / not selected")+"  ⌄",13,TEXT,true);
-        runtime.setPadding(dp(10),dp(10),dp(10),dp(10)); runtime.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
-        content.addView(runtime,margins(-1,dp(42),0,dp(3),0,dp(3))); runtime.setOnClickListener(v->chooseJavaRuntime(runtime));
-        settingsText("JVM Arguments", "-Xmx is managed by the RAM slider; add other JVM flags here", "jvm_args");
-        settingsText("Game Resolution", "Default / device resolution", "resolution");
-        settingsSwitch("Enable VSync","vsync",true);
-        settingsSwitch("Show FPS","show_fps",false);
-        settingsSwitch("Fullscreen","fullscreen",true);
-        settingsSwitch("Use custom controls","custom_controls",false);
-        settingsSwitch("Keep launcher logs","logs",true);
-        TextView note=txt("Java runtimes are selected from runtimes installed inside the app. Runtime download/installation and applying JVM settings to the game process are not connected yet.",11,MUTED,false);
-        content.addView(note,margins(-1,-2,dp(5),dp(12),dp(5),dp(8)));
+    }
+
+    private void showJavaSettings() {
+        settingsHeader("Java & Memory","Manage the Java environment used by Minecraft.");
+        settingsSection("RUNTIME MANAGER","Choose and manage installed Java runtimes");
+        settingsAction("Manage Java Runtimes","Select an installed runtime. Runtime installation is not connected yet.","runtime");
+        java.io.File runtimeRoot=new java.io.File(getFilesDir(),"runtimes");
+        java.io.File[] dirs=runtimeRoot.listFiles();
+        int count=0;
+        if(dirs!=null) for(java.io.File d:dirs) if(d.isDirectory()) count++;
+        addSettingsNote("The engine includes its bundled Java runtime and selects the compatible Java version automatically. "
+                + count + " custom runtime folder(s) detected.");
+        settingsSection("MEMORY","Set the maximum memory available to Minecraft");
+        android.app.ActivityManager.MemoryInfo mi=new android.app.ActivityManager.MemoryInfo();
+        ((android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(mi);
+        int total=(int)(mi.totalMem/1048576L);
+        int max=Math.max(512,Math.min(8192,total-(total<3064?800:1024)));
+        if(!android.os.Process.is64Bit()) max=Math.min(1024,max);
+        max=Math.max(256,max);
+        settingsSlider("RAM allocation","ram_mb",256,max,128,
+            Math.max(256,Math.min(max,prefs.getInt("ram_mb",Math.min(2048,max))))," MB");
+        settingsSection("JAVA ARGUMENTS","Advanced virtual machine options");
+        settingsText("JVM Arguments","Example: -XX:+UseG1GC","jvm_args");
+        settingsSwitch("Java sandbox","java_sandbox",true);
+        addSettingsNote("RAM and JVM flags are applied at launch. Auto selects a compatible Java runtime; legacy and modern versions can use Java 8, 17, 21 or 25 as required.");
+    }
+
+    private void showVideoSettings() {
+        settingsHeader("Video & Graphics","Display, renderer and graphics driver preferences.");
+        settingsSection("RENDERER","Choose the graphics backend");
+        android.content.pm.ConfigurationInfo ci=((android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE)).getDeviceConfigurationInfo();
+        String gl=ci==null?"":ci.getGlEsVersion();
+        java.util.ArrayList<String> labels=new java.util.ArrayList<>();
+        java.util.ArrayList<String> values=new java.util.ArrayList<>();
+        labels.add("Auto"); values.add("auto");
+        labels.add("OpenGL ES 2"); values.add("gles2");
+        if(gl.startsWith("3")) { labels.add("OpenGL ES 3"); values.add("gles3"); }
+        if(getPackageManager().hasSystemFeature("android.hardware.vulkan.level")) { labels.add("Vulkan"); values.add("vulkan"); }
+        settingsChoice("Preferred renderer","renderer",labels.toArray(new String[0]),values.toArray(new String[0]));
+        settingsSection("DISPLAY","Resolution and screen behavior");
+        settingsSwitch("Ignore display cutout","ignore_notch",false);
+        settingsSlider("Resolution scale","resolution_scale",25,100,5,prefs.getInt("resolution_scale",100)," %");
+        settingsSwitch("Sustained performance mode","sustained_performance",false);
+        settingsSwitch("Use alternate display surface","alternate_surface",false);
+        settingsSwitch("Force VSync","vsync",false);
+        settingsSwitch("Use ANGLE translation layer","use_angle",false);
+        settingsSection("GRAPHICS DRIVERS","Vulkan / Zink driver configuration");
+        settingsAction("Manage graphics drivers","Install or select a compatible driver when the graphics bridge is available.","drivers");
+        settingsSwitch("Prefer system Vulkan driver","system_vulkan_driver",false);
+        addSettingsNote("Renderer, resolution, VSync and display preferences are passed to the native game engine. Available backends depend on your GPU and Android driver.");
+    }
+
+    private void showControlSettings() {
+        settingsHeader("Controls & Input","Customize touch, gestures, mouse and external controllers.");
+        settingsSection("TOUCH LAYOUT","Edit and manage on-screen controls");
+        settingsAction("Edit control layout","Open the in-game editor to move, resize and customize buttons.","controls");
+        settingsAction("Import / Export control layout","Share a custom control layout file.","controls");
+        settingsSection("GESTURES","Touch gesture behavior");
+        settingsSwitch("Disable gestures","disable_gestures",false);
+        settingsSwitch("Disable double-tap hand swap","disable_double_tap",false);
+        settingsSlider("Long-press activation delay","long_press_ms",100,1000,50,prefs.getInt("long_press_ms",300)," ms");
+        settingsSection("BUTTONS","Appearance and sizing");
+        settingsSlider("Button size","button_scale",50,200,5,prefs.getInt("button_scale",100)," %");
+        settingsSlider("Button transparency","button_transparency",0,100,5,prefs.getInt("button_transparency",100)," %");
+        settingsSwitch("Use uppercase button labels","button_all_caps",true);
+        settingsSection("VIRTUAL MOUSE","Pointer behavior");
+        settingsSlider("Mouse pointer size","mouse_scale",50,200,5,prefs.getInt("mouse_scale",100)," %");
+        settingsSlider("Mouse speed","mouse_speed",50,200,5,prefs.getInt("mouse_speed",100)," %");
+        settingsSwitch("Start with virtual mouse enabled","mouse_start",false);
+        settingsSection("GYROSCOPE","Motion-based camera controls");
+        boolean hasGyro=getPackageManager().hasSystemFeature("android.hardware.sensor.gyroscope");
+        if(hasGyro) {
+            settingsSwitch("Enable gyroscope","gyro_enabled",false);
+            settingsSlider("Gyroscope sensitivity","gyro_sensitivity",25,300,5,prefs.getInt("gyro_sensitivity",100)," %");
+            settingsSlider("Gyroscope sample rate","gyro_rate",5,100,5,prefs.getInt("gyro_rate",20)," ms");
+            settingsSwitch("Smooth gyro movement","gyro_smoothing",true);
+            settingsSwitch("Invert X axis","gyro_invert_x",false);
+            settingsSwitch("Invert Y axis","gyro_invert_y",false);
+        } else addSettingsNote("This device does not report a gyroscope sensor.");
+        settingsSection("CONTROLLERS & KEYBOARD","External input devices");
+        settingsAction("Remap gamepad buttons","Configure controller button mapping.","controls");
+        settingsSlider("Controller deadzone","gamepad_deadzone",0,50,1,prefs.getInt("gamepad_deadzone",15)," %");
+        settingsSwitch("Keyboard auto-panning","keyboard_autopan",false);
+        addSettingsNote("Touch controls, mouse, keyboard, gyroscope and controller preferences are passed to the in-game input engine when a session starts.");
+    }
+
+    private void showMiscSettings() {
+        settingsHeader("Advanced & Miscellaneous","Launcher behavior, downloads, verification and storage.");
+        settingsSection("GAME FILES","Integrity and startup behavior");
+        settingsSwitch("Verify game files","verify_game_files",true);
+        settingsSwitch("Fast startup check","fast_startup_check",true);
+        settingsSwitch("Verify downloaded manifests","verify_manifest",true);
+        settingsSwitch("Show low-memory warning","show_memory_warning",true);
+        settingsSection("DOWNLOADS","Select source and connection behavior");
+        settingsChoice("Download source","download_source",
+            new String[]{"Default","Official Mojang","Mirror (when available)"},
+            new String[]{"default","mojang","mirror"});
+        settingsSwitch("Disable server blocklist","disable_server_blocklist",false);
+        settingsSection("STORAGE & MAINTENANCE","Manage launcher data");
+        settingsAction("Clear metadata cache","Remove cached version and metadata information.","cache");
+        settingsAction("Clean partial downloads","Remove incomplete .part and .tmp files from launcher storage.","partials");
+        settingsAction("Migrate launcher data","Move launcher data to another storage location.","migration");
+        settingsAction("Microphone permission","Request microphone access for future voice features.","mic");
+        addSettingsNote("Verification and download settings are passed to the engine. Cache cleanup and full storage migration tools are still being completed.");
+    }
+
+    private void showExperimentalSettings() {
+        settingsHeader("Experimental","Advanced options. Change these only when you know what they do.");
+        settingsSection("CPU & GPU","Device-specific performance flags");
+        settingsSwitch("Prefer big CPU cores","big_core_affinity",false);
+        settingsSwitch("Freedreno system memory mode","freedreno_sysmem",false);
+        settingsSwitch("OpenSL audio backend","opensl_audio",false);
+        settingsSwitch("UBWC graphics workaround","ubwc_workaround",false);
+        settingsSwitch("Dump graphics shaders","dump_shaders",false);
+        addSettingsNote("These GPU and audio flags are passed to the native engine. They only affect hardware and drivers that support them.");
+    }
+
+    private void showGeneralSettings() {
+        settingsHeader("Language & Permissions","General launcher preferences.");
+        settingsSection("LANGUAGE","Choose launcher text behavior");
+        settingsSwitch("Force English","force_english",false);
+        settingsSection("ANDROID PERMISSIONS","System-level access");
+        settingsAction("Microphone permission","Android will request access when a feature requires it.","mic");
+        settingsSwitch("Enable update notifications","notifications_enabled",true);
+    }
+
+    private void settingsSection(String title,String subtitle) {
+        LinearLayout section=card();
+        section.setOrientation(LinearLayout.VERTICAL);
+        TextView heading=txt(title,13,TEXT,true);
+        section.addView(heading);
+        section.addView(txt(subtitle,11,MUTED,false),margins(-1,-2,0,dp(2),0,0));
+        content.addView(section,margins(-1,-2,0,dp(4),0,dp(5)));
+    }
+
+    private void addSettingsNote(String message) {
+        TextView note=txt(message,11,MUTED,false);
+        note.setPadding(dp(3),dp(4),dp(3),dp(8));
+        content.addView(note,new LinearLayout.LayoutParams(-1,-2));
+    }
+
+    private void settingsChoice(String title,String key,String[] labels,String[] values) {
+        String selectedValue=prefs.getString(key,values[0]);
+        int selectedIndex=0;
+        for(int i=0;i<values.length;i++) if(values[i].equals(selectedValue)) selectedIndex=i;
+        final int initialIndex=selectedIndex;
+        TextView choice=txt(title+"  •  "+labels[initialIndex]+"  ⌄",13,TEXT,true);
+        choice.setGravity(Gravity.CENTER_VERTICAL);
+        choice.setPadding(dp(12),0,dp(12),0);
+        choice.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
+        content.addView(choice,margins(-1,dp(42),0,dp(3),0,dp(4)));
+        choice.setOnClickListener(v->new android.app.AlertDialog.Builder(this)
+            .setTitle(title).setSingleChoiceItems(labels,initialIndex,(dialog,which)->{
+                prefs.edit().putString(key,values[which]).apply();
+                choice.setText(title+"  •  "+labels[which]+"  ⌄");
+                dialog.dismiss();
+            }).setNegativeButton("Cancel",null).show());
+    }
+
+    private void settingsSlider(String title,String key,int min,int max,int step,int initial,String suffix) {
+        LinearLayout block=new LinearLayout(this);
+        block.setOrientation(LinearLayout.VERTICAL);
+        block.setPadding(dp(3),dp(4),dp(3),dp(4));
+        LinearLayout line=new LinearLayout(this);
+        line.setGravity(Gravity.CENTER_VERTICAL);
+        TextView label=txt(title,13,TEXT,true);
+        line.addView(label,new LinearLayout.LayoutParams(0,-2,1));
+        int safeValue=Math.max(min,Math.min(max,initial));
+        TextView value=txt(safeValue+suffix,12,ACCENT,true);
+        line.addView(value);
+        block.addView(line);
+        SeekBar seek=new SeekBar(this);
+        int steps=Math.max(1,(max-min)/step);
+        seek.setMax(steps);
+        seek.setProgress(Math.max(0,Math.min(steps,(safeValue-min)/step)));
+        block.addView(seek,new LinearLayout.LayoutParams(-1,dp(30)));
+        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onProgressChanged(SeekBar bar,int progress,boolean fromUser){
+                value.setText((min+progress*step)+suffix);
+            }
+            public void onStartTrackingTouch(SeekBar bar){}
+            public void onStopTrackingTouch(SeekBar bar){
+                prefs.edit().putInt(key,min+bar.getProgress()*step).apply();
+            }
+        });
+        content.addView(block,margins(-1,-2,0,dp(2),0,dp(3)));
+    }
+    private int deletePartialDownloads(java.io.File root) {
+        if (root == null || !root.exists()) return 0;
+        int removed = 0;
+        java.io.File[] children = root.listFiles();
+        if (children == null) return 0;
+        for (java.io.File child : children) {
+            if (child.isDirectory()) {
+                removed += deletePartialDownloads(child);
+            } else {
+                String name = child.getName().toLowerCase(java.util.Locale.ROOT);
+                if ((name.endsWith(".part") || name.endsWith(".tmp")) && child.delete()) removed++;
+            }
+        }
+        return removed;
     }
 
     private void chooseJavaRuntime(TextView view) {
-        java.io.File root=new java.io.File(getFilesDir(),"runtimes");
+        java.io.File root=new java.io.File(getFilesDir().getParentFile(),"runtimes");
         java.util.ArrayList<String> names=new java.util.ArrayList<>();
+        names.add("Auto");
         java.io.File[] dirs=root.listFiles();
-        if(dirs!=null) for(java.io.File d:dirs) if(d.isDirectory()) names.add(d.getName());
-        if(names.isEmpty()) {
-            new android.app.AlertDialog.Builder(this).setTitle("Java Runtime")
-                .setMessage("No Java runtimes are installed yet. Immortal needs an Android-compatible Java runtime before Minecraft can launch.")
-                .setPositiveButton("OK",null).show(); return;
+        if(dirs!=null) {
+            java.util.Arrays.sort(dirs,(a,b)->a.getName().compareToIgnoreCase(b.getName()));
+            for(java.io.File d:dirs) if(d.isDirectory()) names.add(d.getName());
         }
-        names.add(0,"Auto");
         new android.app.AlertDialog.Builder(this).setTitle("Choose Java Runtime")
             .setItems(names.toArray(new String[0]),(d,which)->{
-                String value=names.get(which); prefs.edit().putString("java_runtime",value).apply();
+                String value=names.get(which);
+                prefs.edit().putString("java_runtime",value).apply();
                 view.setText("Java Runtime  •  "+value+"  ⌄");
+                if("Auto".equals(value) && names.size()==1)
+                    toast("No compatible runtime is installed yet.");
             }).setNegativeButton("Cancel",null).show();
     }
+
     private void settingsText(String title,String hint,String key) {
         content.addView(txt(title,14,TEXT,true),margins(-1,-2,dp(5),dp(7),0,dp(3)));
         EditText input=new EditText(this); input.setTextSize(12); input.setTextColor(TEXT);
         input.setHintTextColor(MUTED); input.setSingleLine(false); input.setHint(hint);
         input.setText(prefs.getString(key,""));
         input.setPadding(dp(10),dp(5),dp(10),dp(5)); input.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
-        content.addView(input,margins(-1,dp(42),0,0,0,dp(3)));
+        content.addView(input,margins(-1,dp(58),0,0,0,dp(3)));
         input.setOnFocusChangeListener((v,has)->{if(!has)prefs.edit().putString(key,input.getText().toString()).apply();});
     }
 
@@ -379,7 +670,7 @@ public class MainActivity extends Activity {
         else if("Shaders".equals(selected)) folder="shaderpacks";
         else if("Modpacks".equals(selected)) folder="modpacks";
         else folder="skins";
-        java.io.File base=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+selectedMinecraftVersion+"/"+folder);
+        java.io.File base=LauncherPaths.sharedFolder(this,folder);
         if(!base.exists()) base.mkdirs();
         content.addView(txt(title,23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(4)));
         content.addView(txt("Files for "+selectedMinecraftVersion+" • stored in the selected instance",12,MUTED,false),
@@ -415,7 +706,19 @@ public class MainActivity extends Activity {
             LinearLayout row=card(); row.setGravity(Gravity.CENTER_VERTICAL);
             TextView name=txt(file.getName(),13,TEXT,true);
             row.addView(name,new LinearLayout.LayoutParams(0,-2,1));
-            TextView remove=txt("REMOVE",10,ACCENT,true); row.addView(remove);
+            if(!"modpacks".equals(folder) && !"skins".equals(folder)) {
+                boolean disabled=file.getName().endsWith(".disabled");
+                TextView toggle=txt(disabled?"ENABLE":"DISABLE",10,ACCENT,true);
+                row.addView(toggle);
+                toggle.setPadding(dp(7),0,dp(7),0);
+                toggle.setOnClickListener(v->{
+                    String nextName=disabled?file.getName().substring(0,file.getName().length()-9):file.getName()+".disabled";
+                    java.io.File next=new java.io.File(file.getParentFile(),nextName);
+                    if(file.renameTo(next)){toast(disabled?"File enabled":"File disabled");showPage();}
+                    else toast("Could not change file state.");
+                });
+            }
+            TextView remove=txt("REMOVE",10,ACCENT,true); remove.setPadding(dp(7),0,0,0); row.addView(remove);
             content.addView(row,margins(-1,dp(44),0,dp(3),0,dp(3)));
             remove.setOnClickListener(v->new android.app.AlertDialog.Builder(this)
                 .setTitle("Remove "+file.getName()+"?")
@@ -425,9 +728,42 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode,int resultCode,android.content.Intent data) {
         super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode==201) {
+            if(resultCode==RESULT_OK) toast("Microsoft account connected.");
+            showPage();
+            return;
+        }
+        if(requestCode==202) {
+            if(resultCode==RESULT_OK && data!=null) {
+                String installed=data.getStringExtra(EngineForgeInstallActivity.EXTRA_INSTALLED_VERSION);
+                if(installed!=null && !installed.isEmpty()) {
+                    selectedMinecraftVersion=installed;
+                    prefs.edit().putString("selected_version",installed)
+                            .putString("base_game_version",prefs.getString("base_game_version",installed))
+                            .putString("selected_loader",selectedLoader).apply();
+                    toast(selectedLoader+" installed: "+installed);
+                }
+            }
+            showPage();
+            return;
+        }
+        if(requestCode==203) {
+            if(resultCode==RESULT_OK && data!=null) {
+                String installed=data.getStringExtra(EngineForgeInstallActivity.EXTRA_INSTALLED_VERSION);
+                if(installed!=null && !installed.isEmpty()) {
+                    finishForgeModpackInstall(installed);
+                    return;
+                }
+            }
+            pendingModpackArchive=null;
+            pendingModpackInfo=null;
+            clearPendingModpack();
+            showPage();
+            return;
+        }
         if(resultCode!=RESULT_OK || data==null || data.getData()==null) return;
         String folder=requestCode==101?"mods":requestCode==102?"resourcepacks":requestCode==103?"shaderpacks":requestCode==104?"modpacks":"skins";
-        String expected=requestCode==101?".jar":requestCode==105?".png":".zip";
+        String expected=requestCode==101?".jar":requestCode==105?".png":requestCode==104?".mrpack":".zip";
         android.net.Uri uri=data.getData();
         new Thread(()->{
             try {
@@ -440,7 +776,7 @@ public class MainActivity extends Activity {
                 }
                 if(!name.toLowerCase(java.util.Locale.ROOT).endsWith(expected))
                     throw new java.io.IOException("Choose a "+expected+" file for this section.");
-                java.io.File dir=new java.io.File(getExternalFilesDir(null),"minecraft/versions/"+selectedMinecraftVersion+"/"+folder);
+                java.io.File dir=LauncherPaths.sharedFolder(this,folder);
                 if(!dir.exists()) dir.mkdirs();
                 java.io.File target=new java.io.File(dir,name);
                 try(java.io.InputStream in=getContentResolver().openInputStream(uri);
@@ -451,28 +787,73 @@ public class MainActivity extends Activity {
                 }
                 final String importedName=name;
                 runOnUiThread(()->{toast("Imported "+importedName);showPage();});
+                if ("modpacks".equals(folder)) installModrinthModpack(target);
             } catch(Exception e) { runOnUiThread(()->toast("Import failed: "+e.getMessage())); }
         }).start();
     }
 
     private void showAccountsPage() {
         content.addView(txt("Accounts",23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(8)));
+        boolean microsoft = prefs.getBoolean("microsoft_signed_in", false);
+        String active = microsoft
+                ? "Microsoft  •  " + prefs.getString("microsoft_player", "Connected")
+                : "Offline  •  " + prefs.getString("offline_player", "Player");
+        LinearLayout activeCard=card();
+        activeCard.setOrientation(LinearLayout.VERTICAL);
+        activeCard.addView(txt("ACTIVE ACCOUNT",10,MUTED,true));
+        activeCard.addView(txt(active,15,TEXT,true),margins(-1,-2,0,dp(4),0,0));
+        activeCard.addView(txt(microsoft
+                ? "Microsoft authentication is active for the next game session."
+                : "Offline profiles work in single-player and servers that allow offline accounts.",12,MUTED,false));
+        content.addView(activeCard,margins(-1,-2,0,0,0,dp(10)));
+
+        TextView microsoftButton=txt(microsoft?"Add another Microsoft account":"Sign in with Microsoft",13,BG,true);
+        microsoftButton.setGravity(Gravity.CENTER);
+        microsoftButton.setBackground(shape(Color.rgb(190,187,199),14,Color.TRANSPARENT));
+        content.addView(microsoftButton,margins(-1,dp(42),0,0,0,dp(12)));
+        microsoftButton.setOnClickListener(v->{
+            Intent intent=new Intent(this,MicrosoftLoginActivity.class);
+            startActivityForResult(intent,201);
+        });
+
         content.addView(txt("Offline profile",14,TEXT,true),margins(-1,-2,dp(5),dp(4),0,dp(3)));
         EditText player=new EditText(this); player.setSingleLine(true); player.setTextColor(TEXT);
         player.setHintTextColor(MUTED); player.setHint("Player name");
         player.setText(prefs.getString("offline_player","Player"));
         player.setBackground(shape(PANEL2,12,Color.rgb(55,51,65)));
         content.addView(player,margins(-1,dp(44),0,0,0,dp(8)));
-        TextView save=txt("Save offline profile",13,BG,true); save.setGravity(Gravity.CENTER);
+        TextView save=txt("Use offline profile",13,BG,true); save.setGravity(Gravity.CENTER);
         save.setBackground(shape(Color.rgb(190,187,199),14,Color.TRANSPARENT));
         content.addView(save,margins(dp(170),dp(38),0,0,0,dp(10)));
-        save.setOnClickListener(v->{String name=player.getText().toString().trim();
+        save.setOnClickListener(v->{
+            String name=player.getText().toString().trim();
             if(name.isEmpty() || name.length()>16){toast("Minecraft names must be 1–16 characters.");return;}
-            prefs.edit().putString("offline_player",name).apply();toast("Offline profile saved.");
+            try {
+                activateOfflineAccount(name);
+                toast("Offline profile selected.");
+                showPage();
+            } catch(Exception error) {
+                toast("Could not switch account: "+error.getMessage());
+            }
         });
-        LinearLayout note=card();
-        note.addView(txt("Microsoft account sign-in is not connected yet. Offline profiles do not provide access to online-mode servers.",12,MUTED,false));
-        content.addView(note,new LinearLayout.LayoutParams(-1,-2));
+    }
+
+    private void activateOfflineAccount(String username) throws Exception {
+        String profileId=java.util.UUID.nameUUIDFromBytes(
+                ("OfflinePlayer:"+username).getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                .toString().replace("-","");
+        git.artdeell.mojo.authenticator.accounts.Account local =
+                git.artdeell.mojo.authenticator.accounts.Accounts.create(account -> {
+                    account.username=username;
+                    account.profileId=profileId;
+                    account.authType=git.artdeell.mojo.authenticator.AuthType.LOCAL;
+                    account.isMicrosoft=false;
+                    account.accessToken="0";
+                    account.refreshToken="0";
+                });
+        git.artdeell.mojo.authenticator.accounts.Accounts.setCurrent(local);
+        prefs.edit().putString("offline_player",username)
+                .putBoolean("microsoft_signed_in",false).apply();
     }
 
     private void showGraphicsPage() {
@@ -489,7 +870,7 @@ public class MainActivity extends Activity {
         addDiagnostic("Selected Minecraft version",selectedMinecraftVersion);
         addDiagnostic("Selected loader",selectedLoader);
         LinearLayout note=card();
-        note.addView(txt("This page reports Android graphics capabilities. It is not a live Minecraft shader renderer; rendering Minecraft Java on Android still needs a compatible graphics translation layer and native libraries.",12,MUTED,false));
+        note.addView(txt("The engine includes GL4ES, LTW and Vulkan/Zink rendering backends. Actual compatibility and shader support depend on your GPU, Android driver and the selected Minecraft version.",12,MUTED,false));
         content.addView(note,margins(-1,-2,0,dp(10),0,0));
     }
 
@@ -502,13 +883,13 @@ public class MainActivity extends Activity {
 
     private void showLogsPage() {
         content.addView(txt("Launcher Diagnostics",23,TEXT,true),margins(-1,-2,dp(5),dp(5),0,dp(8)));
-        addDiagnostic("App version","0.1.0");
+        addDiagnostic("App version","0.2.0");
         addDiagnostic("Selected instance",selectedMinecraftVersion);
         addDiagnostic("Loader",selectedLoader);
         addDiagnostic("Storage directory",String.valueOf(getExternalFilesDir(null)));
         addDiagnostic("Java runtime",prefs.getString("java_runtime","Not installed / not selected"));
         LinearLayout note=card();
-        note.addView(txt("Installer progress and errors are shown in the status message while downloading. Persistent log capture will be added with the game process/runtime integration.",12,MUTED,false));
+        note.addView(txt("The engine writes its game log to latestlog.txt in the Immortal app data folder. Download and launch errors are shown on screen.",12,MUTED,false));
         content.addView(note,margins(-1,-2,0,dp(8),0,0));
     }
 
@@ -540,11 +921,113 @@ public class MainActivity extends Activity {
     private void downloadModrinthProject(ModrinthClient client,org.json.JSONObject project,String folder,String game) {
         new Thread(()->{
             try{
-                org.json.JSONObject version=client.versions(project.getString("project_id"),game,selectedLoader);
-                String directory=selectedMinecraftVersion+"/"+folder;
-                java.io.File file=client.downloadPrimary(version,directory);
-                runOnUiThread(()->{toast("Downloaded "+file.getName());showPage();});
+                String compatibleLoader=("mods".equals(folder)||"modpacks".equals(folder))?selectedLoader:"Vanilla";
+                org.json.JSONObject version=client.versions(project.getString("project_id"),game,compatibleLoader);
+                java.io.File file=client.downloadPrimary(version,folder);
+                if("modpacks".equals(folder)) installModrinthModpack(file);
+                else runOnUiThread(()->{toast("Downloaded "+file.getName());showPage();});
             }catch(Exception e){runOnUiThread(()->toast("Download failed: "+e.getMessage()));}
+        }).start();
+    }
+
+    private void installModrinthModpack(java.io.File archive) {
+        new Thread(() -> {
+            try {
+                ModrinthModpackInstaller installer = new ModrinthModpackInstaller(this,
+                    message -> runOnUiThread(() -> {
+                        if (downloadStatus != null) downloadStatus.setText(message);
+                    }));
+                ModrinthModpackInstaller.PackInfo info = installer.inspect(archive);
+                if ("Forge".equals(info.loader) || "NeoForge".equals(info.loader)) {
+                    pendingModpackArchive = archive;
+                    pendingModpackInfo = info;
+                    prefs.edit().putString("pending_mrpack_path", archive.getAbsolutePath())
+                            .putString("pending_mrpack_game", info.gameVersion)
+                            .putString("pending_mrpack_loader", info.loader)
+                            .putString("pending_mrpack_loader_version", info.loaderVersion == null ? "" : info.loaderVersion)
+                            .putString("pending_mrpack_name", info.name).apply();
+                    String requested = "Forge".equals(info.loader)
+                            ? info.gameVersion + "-" + info.loaderVersion : info.loaderVersion;
+                    runOnUiThread(() -> {
+                        Intent intent = new Intent(this, EngineForgeInstallActivity.class);
+                        intent.putExtra(EngineForgeInstallActivity.EXTRA_GAME_VERSION, info.gameVersion);
+                        intent.putExtra(EngineForgeInstallActivity.EXTRA_LOADER, info.loader);
+                        intent.putExtra(EngineForgeInstallActivity.EXTRA_REQUESTED_BUILD, requested);
+                        startActivityForResult(intent, 203);
+                    });
+                    return;
+                }
+                ModrinthModpackInstaller.Result result = installer.install(archive);
+                runOnUiThread(() -> applyInstalledModpack(result));
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    String message = "Modpack install failed: " + error.getMessage();
+                    if (downloadStatus != null) downloadStatus.setText(message);
+                    toast(message);
+                });
+            }
+        }).start();
+    }
+
+    private void applyInstalledModpack(ModrinthModpackInstaller.Result result) {
+        selectedMinecraftVersion = result.installedVersionId;
+        selectedLoader = result.loader;
+        prefs.edit()
+            .putString("selected_version", result.installedVersionId)
+            .putString("base_game_version", result.gameVersion)
+            .putString("selected_loader", result.loader)
+            .putString("selected_loader_build", result.loaderVersion == null ? "" : result.loaderVersion)
+            .apply();
+        toast("Installed modpack: " + result.name);
+        showPage();
+    }
+
+    private void clearPendingModpack() {
+        prefs.edit().remove("pending_mrpack_path").remove("pending_mrpack_game")
+                .remove("pending_mrpack_loader").remove("pending_mrpack_loader_version")
+                .remove("pending_mrpack_name").apply();
+    }
+
+    private void finishForgeModpackInstall(String installedVersionId) {
+        java.io.File archive = pendingModpackArchive;
+        ModrinthModpackInstaller.PackInfo info = pendingModpackInfo;
+        if (archive == null || info == null) {
+            String savedPath = prefs.getString("pending_mrpack_path", "");
+            if (!savedPath.isEmpty()) {
+                archive = new java.io.File(savedPath);
+                info = new ModrinthModpackInstaller.PackInfo(
+                        prefs.getString("pending_mrpack_game", ""),
+                        prefs.getString("pending_mrpack_loader", ""),
+                        prefs.getString("pending_mrpack_loader_version", ""),
+                        prefs.getString("pending_mrpack_name", "Modpack"));
+            }
+        }
+        pendingModpackArchive = null;
+        pendingModpackInfo = null;
+        clearPendingModpack();
+        if (archive == null || info == null || !archive.isFile()) {
+            toast("The pending modpack archive could not be recovered.");
+            showPage();
+            return;
+        }
+        final java.io.File archiveToInstall = archive;
+        final ModrinthModpackInstaller.PackInfo infoToInstall = info;
+        new Thread(() -> {
+            try {
+                ModrinthModpackInstaller installer = new ModrinthModpackInstaller(this,
+                    message -> runOnUiThread(() -> {
+                        if (downloadStatus != null) downloadStatus.setText(message);
+                    }));
+                ModrinthModpackInstaller.Result result = installer.installPackFiles(archiveToInstall, infoToInstall, installedVersionId);
+                runOnUiThread(() -> applyInstalledModpack(result));
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    String message = "Modpack files failed to install: " + error.getMessage();
+                    if (downloadStatus != null) downloadStatus.setText(message);
+                    toast(message);
+                    showPage();
+                });
+            }
         }).start();
     }
 
@@ -562,7 +1045,7 @@ public class MainActivity extends Activity {
                     String type=item.optString("type","");
                     if(type.equals("release") || type.equals("snapshot") || type.equals("old_beta") || type.equals("old_alpha")) {
                         ids.add(id);
-                        labels.add(id+(type.equals("release")?"  •  Release":type.equals("old_beta")?"  •  Old Beta":"  •  Old Alpha"));
+                        labels.add(id+(type.equals("release")?"  •  Release":type.equals("snapshot")?"  •  Snapshot":type.equals("old_beta")?"  •  Old Beta":"  •  Old Alpha"));
                     }
                 }
                 catalogIds=ids; catalogLabels=labels;                runOnUiThread(() -> {
@@ -741,7 +1224,10 @@ public class MainActivity extends Activity {
     }
 
     private void open(String name) {
+        settingsPage="";
         selected=name;
+        // Settings belong to Immortal's own interface. Never launch Mojo's
+        // LauncherActivity as a settings shortcut.
         setContentView(build());
     }
     private LinearLayout card() {
