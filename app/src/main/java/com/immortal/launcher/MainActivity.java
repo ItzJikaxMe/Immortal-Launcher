@@ -1226,10 +1226,8 @@ public class MainActivity extends Activity {
     private void open(String name) {
         settingsPage="";
         selected=name;
-        if ("Settings".equals(name)) {
-            startActivity(new Intent(this, ImmortalSettingsActivity.class));
-            return;
-        }
+        // Settings belong to Immortal's own interface. Never launch Mojo's
+        // LauncherActivity as a settings shortcut.
         setContentView(build());
     }
     private LinearLayout card() {
