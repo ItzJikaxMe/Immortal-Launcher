@@ -39,6 +39,9 @@
         tools:ignore="UnusedAttribute">
 
         <activity
+            android:name="com.immortal.launcher.ImmortalSettingsActivity"
+            android:exported="false" />
+        <activity
             android:name="com.immortal.launcher.MicrosoftLoginActivity"
             android:exported="false" />
         <activity
